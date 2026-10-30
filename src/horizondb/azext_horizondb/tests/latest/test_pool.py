@@ -9,9 +9,10 @@ from unittest.mock import Mock, patch
 from azure.core.exceptions import HttpResponseError
 from azure.cli.core import get_default_cli
 from azure.cli.core.aaz import AAZCommand
+from azure.cli.core.azclierror import InvalidArgumentValueError
 from azext_horizondb.aaz.latest.horizondb.cluster.pool import Create as PoolCreate
-from azext_horizondb.aaz.latest.horizondb.cluster.pool import custom as pool_custom
-from azext_horizondb.aaz.latest.horizondb.cluster.pool.custom import PoolCreate as CustomPoolCreate, PoolUpdate
+from azext_horizondb import _pool as pool_custom
+from azext_horizondb._pool import PoolCreate as CustomPoolCreate, PoolUpdate
 
 
 class PoolTests(TestCase):
@@ -37,22 +38,48 @@ class PoolTests(TestCase):
         self.pool_update_args = {
             name: self.args[name] for name in ['subscription', 'resource_group', 'cluster_name']
         }
-        self.pool_update_args.update(pool_name='my-pool', node_count=3)
+        self.pool_update_args.update(name='my-pool', node_count=3)
 
-    def test_pool_create_does_not_expose_parameter_group_arguments(self):
+    def test_pool_create_exposes_explicit_default_parameter_group_arguments(self):
         command = CustomPoolCreate(cli_ctx=self.cli_ctx)
         command.load_arguments()
-        self.assertNotIn('parameter_group_resource_id', command.arguments)
-        self.assertNotIn('parameter_group_apply_method', command.arguments)
+        self.assertIn('parameter_group', command.arguments)
+        self.assertIn('parameter_apply_method', command.arguments)
 
-    def test_pool_update_supports_short_and_original_parameter_group_options(self):
+    def test_pool_create_requires_parameter_group_and_apply_method_together(self):
+        for arguments in (
+                {'parameter_group': '/subscriptions/sub/providers/Microsoft.HorizonDb/group/default'},
+                {'parameter_apply_method': 'Immediate'}):
+            with self.subTest(arguments=arguments):
+                command = CustomPoolCreate(cli_ctx=self.cli_ctx)
+                with patch.object(command, 'PoolsCreateOrReplace') as operation:
+                    with self.assertRaisesRegex(InvalidArgumentValueError, 'together'):
+                        command(command_args=dict(self.args, name='primary', **arguments)).result()
+                operation.assert_not_called()
+
+    def test_pool_create_explicit_default_parameter_group_reaches_put(self):
+        group = (
+            '/subscriptions/00000000-0000-0000-0000-000000000001'
+            '/providers/Microsoft.HorizonDb/locations/eastus2/parameterGroups/pg17'
+        )
+        command = CustomPoolCreate(cli_ctx=self.cli_ctx)
+        AAZCommand._handler(command, dict(  # pylint: disable=protected-access
+            self.args, name='primary', parameter_group=group,
+            parameter_apply_method='Immediate'))
+        command.pre_operations()
+        with patch.object(command.ctx, 'get_http_client'):
+            operation = command.PoolsCreateOrReplace(ctx=command.ctx)
+        self.assertEqual(
+            {'parameterGroupResourceId': group, 'applyMethod': 'Immediate'},
+            operation.content['properties']['parameterGroup'],
+        )
+
+    def test_pool_update_uses_original_parameter_group_options(self):
         command = PoolUpdate(cli_ctx=self.cli_ctx)
         command.load_arguments()
         for name, options in {
-            'parameter_group_apply_method': [
-                '--parameter-group-apply-method', '--param-group-apply-method', '--param-group-apply',
-            ],
-            'parameter_group_resource_id': ['--parameter-group-resource-id', '--param-group-id'],
+            'parameter_apply_method': ['--parameter-apply-method'],
+            'parameter_group': ['--parameter-group'],
         }.items():
             with self.subTest(argument=name):
                 self.assertEqual(command.arguments[name].type.settings['options_list'], options)
@@ -73,6 +100,48 @@ class PoolTests(TestCase):
             operation = command.PoolsUpdate(ctx=command.ctx)
         self.assertEqual(operation.method, 'PATCH')
         self.assertEqual(operation.content, {'properties': {'nodeCount': 3}})
+        self.assertEqual(operation.query_parameters, {'api-version': '2026-10-01-preview'})
+
+    def test_pool_update_preserves_flat_argument_request_mapping(self):
+        command = PoolUpdate(cli_ctx=self.cli_ctx)
+        parameter_group_id = (
+            '/subscriptions/00000000-0000-0000-0000-000000000001'
+            '/resourceGroups/test-rg/providers/Microsoft.HorizonDb/parameterGroups/my-group'
+        )
+        args = dict(self.args, name='my-pool', node_count=3,
+                    high_availability_mode='AnyZone',
+                    parameter_group=parameter_group_id,
+                    parameter_apply_method='PendingReboot')
+        AAZCommand._handler(command, args)  # pylint: disable=protected-access
+        with patch.object(command.ctx, 'get_http_client'):
+            operation = command.PoolsUpdate(ctx=command.ctx)
+        self.assertEqual(operation.content, {
+            'properties': {
+                'computeModel': {'computeGeneration': 1, 'computeProcessor': 'Intel', 'vCores': 2},
+                'nodeCount': 3,
+                'highAvailability': {'mode': 'AnyZone'},
+                'parameterGroup': {
+                    'parameterGroupResourceId': parameter_group_id, 'applyMethod': 'PendingReboot',
+                },
+            },
+        })
+
+    def test_invalid_pool_configuration_prevents_requests(self):
+        for command_type in [CustomPoolCreate, PoolUpdate]:
+            for overrides in [
+                    {'node_count': 1, 'high_availability_mode': 'AnyZone'},
+                    {'node_count': 1, 'high_availability_mode': 'ZoneRedundant'},
+                    {'node_count': 2, 'high_availability_mode': 'Disabled'},
+                    {'name': 'test-cluster'}]:
+                with self.subTest(command=command_type.__name__, args=overrides):
+                    command = command_type(cli_ctx=self.cli_ctx)
+                    operation_name = 'PoolsCreateOrReplace' if command_type is CustomPoolCreate else 'PoolsUpdate'
+                    args = dict(self.args, name='my-pool')
+                    args.update(overrides)
+                    with patch.object(command, operation_name) as operation:
+                        with self.assertRaises(InvalidArgumentValueError):
+                            command(command_args=args).result()
+                    operation.assert_not_called()
 
     def test_pool_update_gets_final_pool_after_empty_polling_result(self):
         command = PoolUpdate(cli_ctx=self.cli_ctx)
@@ -86,7 +155,7 @@ class PoolTests(TestCase):
             events.append('get')
             self.assertEqual(command_args, {
                 name: self.pool_update_args[name]
-                for name in ['cluster_name', 'pool_name', 'resource_group', 'subscription']
+                for name in ['cluster_name', 'name', 'resource_group', 'subscription']
             })
             return updated_pool
 
@@ -140,8 +209,8 @@ class PoolTests(TestCase):
             '/subscriptions/00000000-0000-0000-0000-000000000001'
             '/providers/Microsoft.HorizonDb/locations/japaneast/parameterGroups/default-postgresql-17-provisioned'
         )
-        args = dict(self.args, pool_name='my-pool', parameter_group_resource_id=parameter_group_id,
-                    parameter_group_apply_method='Immediate')
+        args = dict(self.args, name='my-pool', parameter_group=parameter_group_id,
+                    parameter_apply_method='Immediate')
         AAZCommand._handler(command, args)  # pylint: disable=protected-access
         with patch.object(command.ctx, 'get_http_client'):
             operation = command.PoolsCreateOrReplace(ctx=command.ctx)
@@ -155,13 +224,13 @@ class PoolTests(TestCase):
 
     def test_pool_create_omits_parameter_group_without_resource_id(self):
         for parameter_group_args in [
-                {}, {'parameter_group_resource_id': None},
-                {'parameter_group_resource_id': ''},
-                {'parameter_group_apply_method': 'Immediate'},
-                {'parameter_group_resource_id': '', 'parameter_group_apply_method': 'Immediate'}]:
+                {}, {'parameter_group': None},
+                {'parameter_group': ''},
+                {'parameter_apply_method': 'Immediate'},
+                {'parameter_group': '', 'parameter_apply_method': 'Immediate'}]:
             with self.subTest(arguments=parameter_group_args):
                 command = CustomPoolCreate(cli_ctx=self.cli_ctx)
-                args = dict(self.args, pool_name='my-pool', **parameter_group_args)
+                args = dict(self.args, name='my-pool', **parameter_group_args)
                 AAZCommand._handler(command, args)  # pylint: disable=protected-access
                 with patch.object(command.ctx, 'get_http_client'):
                     operation = command.PoolsCreateOrReplace(ctx=command.ctx)
@@ -169,11 +238,13 @@ class PoolTests(TestCase):
 
     def test_pool_request_sets_provisioned_type_and_omits_parameter_group(self):
         command = CustomPoolCreate(cli_ctx=self.cli_ctx)
-        args = dict(self.args, pool_name='defaultpool')
+        args = dict(self.args, name='defaultpool')
         AAZCommand._handler(command, args)  # pylint: disable=protected-access
         with patch.object(command.ctx, 'get_http_client'):
             operation = command.PoolsCreateOrReplace(ctx=command.ctx)
         content = operation.content
+        self.assertEqual(operation.method, 'PUT')
+        self.assertEqual(operation.query_parameters, {'api-version': '2026-10-01-preview'})
         self.assertEqual(content, {
             'properties': {
                 'computeModel': {

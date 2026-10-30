@@ -16,10 +16,13 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Show(AAZCommand):
-    """Get a private endpoint connection.
+    """Show a private endpoint connection.
 
-    :example: Get a private endpoint connection
-        az horizondb cluster private-endpoint-connection show --resource-group example-resource-group --cluster-name example-cluster --private-endpoint-connection-name example-private-endpoint-connection
+    Get a private endpoint connection. Shows the private endpoint connection and its approval state.
+
+    :example: Show a private endpoint connection.
+    az horizondb cluster private-endpoint-connection show -g example-rg --cluster-name example-cluster --name
+    example-pec
     """
 
     _aaz_info = {
@@ -47,7 +50,14 @@ class Show(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -56,14 +66,30 @@ class Show(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.private_endpoint_connection_name = AAZStrArg(
-            options=["-n", "--name", "--private-endpoint-connection-name"],
-            help="The name of the private endpoint connection associated with the Azure resource.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the private endpoint connection associated with the Azure resource.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -118,7 +144,7 @@ class Show(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "privateEndpointConnectionName", self.ctx.args.private_endpoint_connection_name,
+                    "privateEndpointConnectionName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -175,7 +201,9 @@ class Show(AAZCommand):
             _schema_on_200.name = AAZStrType(
                 flags={"read_only": True},
             )
-            _schema_on_200.properties = AAZObjectType()
+            _schema_on_200.properties = AAZObjectType(
+                flags={"client_flatten": True},
+            )
             _schema_on_200.system_data = AAZObjectType(
                 serialized_name="systemData",
                 flags={"read_only": True},

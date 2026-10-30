@@ -19,8 +19,12 @@ from azure.cli.core.aaz import *
 class Delete(AAZCommand):
     """Delete a HorizonDB cluster.
 
-    :example: Delete a HorizonDB cluster
-        az horizon-db cluster delete --resource-group example-resource-group --cluster-name example-cluster
+    Delete a HorizonDB cluster, its Cluster-scoped Endpoint, and all remaining child resources. For an accepted
+    deletion, the long-running operation remains nonterminal until physical deletion completes and point GET returns
+    404 Not Found. Deletes the cluster and its child resources. Use --no-wait to return after acceptance.
+
+    :example: Delete a cluster.
+    az horizondb cluster delete -g example-rg -n example-cluster --yes --no-wait
     """
 
     _aaz_info = {
@@ -47,9 +51,16 @@ class Delete(AAZCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.cluster_name = AAZStrArg(
-            options=["-n", "--name", "--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -60,6 +71,15 @@ class Delete(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -131,7 +151,7 @@ class Delete(AAZCommand):
         def url_parameters(self):
             parameters = {
                 **self.serialize_url_param(
-                    "clusterName", self.ctx.args.cluster_name,
+                    "clusterName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

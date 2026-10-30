@@ -16,10 +16,15 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Update(AAZCommand):
-    """Update a HorizonDB pool firewall rule.
+    """Update a pool firewall rule.
 
-    :example: Create or replace a firewall rule on a HorizonDB pool
-        az horizondb cluster pool firewall-rule update --resource-group example-resource-group --cluster-name example-cluster --pool-name example-pool-01 --firewall-rule-name example-firewall-rule-01 --description Allow access from the new network
+    Update a HorizonDB pool firewall rule. Reads the existing firewall rule and replaces it with the requested
+    changes using PUT, not PATCH.
+
+    :example: Update a firewall rule.
+    az horizondb cluster pool firewall-rule update -g example-rg --cluster-name example-cluster --pool-name primary
+    --name office-client --start-ip-address 203.0.113.10 --end-ip-address 203.0.113.10 --description
+    "Updated office egress"
     """
 
     _aaz_info = {
@@ -50,7 +55,14 @@ class Update(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -59,9 +71,18 @@ class Update(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.firewall_rule_name = AAZStrArg(
-            options=["-n", "--name", "--firewall-rule-name"],
-            help="The name of the HorizonDB pool firewall rule.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'The name of the HorizonDB pool firewall rule.'
+                ),
+                'long-summary': (
+                    'The name must be 1 through 80 characters, contain only ASCII letters, digits, '
+                    'underscores, periods, and hyphens, start with a letter or digit, and end with a '
+                    'letter, digit, or underscore.'
+                ),
+            },
             required=True,
             id_part="child_name_2",
             fmt=AAZStrArgFormat(
@@ -72,7 +93,14 @@ class Update(AAZCommand):
         )
         _args_schema.pool_name = AAZStrArg(
             options=["--pool-name"],
-            help="The name of the HorizonDB pool.",
+            help={
+                'short-summary': (
+                    'Pool name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB pool.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
             fmt=AAZStrArgFormat(
@@ -83,6 +111,15 @@ class Update(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
         # define Arg Group "Properties"
@@ -91,7 +128,14 @@ class Update(AAZCommand):
         _args_schema.description = AAZStrArg(
             options=["--description"],
             arg_group="Properties",
-            help="The description of the HorizonDB firewall rule. The maximum length is 1024 characters.",
+            help={
+                'short-summary': (
+                    'The description of the HorizonDB firewall rule.'
+                ),
+                'long-summary': (
+                    'The maximum length is 1024 characters.'
+                ),
+            },
             nullable=True,
             fmt=AAZStrArgFormat(
                 max_length=1024,
@@ -100,7 +144,14 @@ class Update(AAZCommand):
         _args_schema.end_ip_address = AAZStrArg(
             options=["--end-ip-address"],
             arg_group="Properties",
-            help="The end IPv4 address of the firewall rule in dotted-decimal notation. This address must be numerically greater than or equal to startIpAddress.",
+            help={
+                'short-summary': (
+                    'The end IPv4 address of the firewall rule in dotted-decimal notation.'
+                ),
+                'long-summary': (
+                    'This address must be numerically greater than or equal to startIpAddress.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 pattern="^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])[.]){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$",
             ),
@@ -108,7 +159,14 @@ class Update(AAZCommand):
         _args_schema.start_ip_address = AAZStrArg(
             options=["--start-ip-address"],
             arg_group="Properties",
-            help="The start IPv4 address of the firewall rule in dotted-decimal notation.",
+            help={
+                'short-summary': (
+                    'Start ip address.'
+                ),
+                'long-summary': (
+                    'The start IPv4 address of the firewall rule in dotted-decimal notation.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 pattern="^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])[.]){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$",
             ),
@@ -179,7 +237,7 @@ class Update(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "firewallRuleName", self.ctx.args.firewall_rule_name,
+                    "firewallRuleName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -232,57 +290,7 @@ class Update(AAZCommand):
                 return cls._schema_on_200
 
             cls._schema_on_200 = AAZObjectType()
-
-            _schema_on_200 = cls._schema_on_200
-            _schema_on_200.id = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200.name = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200.properties = AAZObjectType()
-            _schema_on_200.system_data = AAZObjectType(
-                serialized_name="systemData",
-                flags={"read_only": True},
-            )
-            _schema_on_200.type = AAZStrType(
-                flags={"read_only": True},
-            )
-
-            properties = cls._schema_on_200.properties
-            properties.description = AAZStrType()
-            properties.end_ip_address = AAZStrType(
-                serialized_name="endIpAddress",
-                flags={"required": True},
-            )
-            properties.provisioning_state = AAZStrType(
-                serialized_name="provisioningState",
-                flags={"read_only": True},
-            )
-            properties.start_ip_address = AAZStrType(
-                serialized_name="startIpAddress",
-                flags={"required": True},
-            )
-
-            system_data = cls._schema_on_200.system_data
-            system_data.created_at = AAZStrType(
-                serialized_name="createdAt",
-            )
-            system_data.created_by = AAZStrType(
-                serialized_name="createdBy",
-            )
-            system_data.created_by_type = AAZStrType(
-                serialized_name="createdByType",
-            )
-            system_data.last_modified_at = AAZStrType(
-                serialized_name="lastModifiedAt",
-            )
-            system_data.last_modified_by = AAZStrType(
-                serialized_name="lastModifiedBy",
-            )
-            system_data.last_modified_by_type = AAZStrType(
-                serialized_name="lastModifiedByType",
-            )
+            _UpdateHelper._build_schema_firewall_rule_read(cls._schema_on_200)
 
             return cls._schema_on_200
 
@@ -336,7 +344,7 @@ class Update(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "firewallRuleName", self.ctx.args.firewall_rule_name,
+                    "firewallRuleName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -401,57 +409,7 @@ class Update(AAZCommand):
                 return cls._schema_on_200_201
 
             cls._schema_on_200_201 = AAZObjectType()
-
-            _schema_on_200_201 = cls._schema_on_200_201
-            _schema_on_200_201.id = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200_201.name = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200_201.properties = AAZObjectType()
-            _schema_on_200_201.system_data = AAZObjectType(
-                serialized_name="systemData",
-                flags={"read_only": True},
-            )
-            _schema_on_200_201.type = AAZStrType(
-                flags={"read_only": True},
-            )
-
-            properties = cls._schema_on_200_201.properties
-            properties.description = AAZStrType()
-            properties.end_ip_address = AAZStrType(
-                serialized_name="endIpAddress",
-                flags={"required": True},
-            )
-            properties.provisioning_state = AAZStrType(
-                serialized_name="provisioningState",
-                flags={"read_only": True},
-            )
-            properties.start_ip_address = AAZStrType(
-                serialized_name="startIpAddress",
-                flags={"required": True},
-            )
-
-            system_data = cls._schema_on_200_201.system_data
-            system_data.created_at = AAZStrType(
-                serialized_name="createdAt",
-            )
-            system_data.created_by = AAZStrType(
-                serialized_name="createdBy",
-            )
-            system_data.created_by_type = AAZStrType(
-                serialized_name="createdByType",
-            )
-            system_data.last_modified_at = AAZStrType(
-                serialized_name="lastModifiedAt",
-            )
-            system_data.last_modified_by = AAZStrType(
-                serialized_name="lastModifiedBy",
-            )
-            system_data.last_modified_by_type = AAZStrType(
-                serialized_name="lastModifiedByType",
-            )
+            _UpdateHelper._build_schema_firewall_rule_read(cls._schema_on_200_201)
 
             return cls._schema_on_200_201
 
@@ -487,6 +445,77 @@ class Update(AAZCommand):
 
 class _UpdateHelper:
     """Helper class for Update"""
+
+    _schema_firewall_rule_read = None
+
+    @classmethod
+    def _build_schema_firewall_rule_read(cls, _schema):
+        if cls._schema_firewall_rule_read is not None:
+            _schema.id = cls._schema_firewall_rule_read.id
+            _schema.name = cls._schema_firewall_rule_read.name
+            _schema.properties = cls._schema_firewall_rule_read.properties
+            _schema.system_data = cls._schema_firewall_rule_read.system_data
+            _schema.type = cls._schema_firewall_rule_read.type
+            return
+
+        cls._schema_firewall_rule_read = _schema_firewall_rule_read = AAZObjectType()
+
+        firewall_rule_read = _schema_firewall_rule_read
+        firewall_rule_read.id = AAZStrType(
+            flags={"read_only": True},
+        )
+        firewall_rule_read.name = AAZStrType(
+            flags={"read_only": True},
+        )
+        firewall_rule_read.properties = AAZObjectType()
+        firewall_rule_read.system_data = AAZObjectType(
+            serialized_name="systemData",
+            flags={"read_only": True},
+        )
+        firewall_rule_read.type = AAZStrType(
+            flags={"read_only": True},
+        )
+
+        properties = _schema_firewall_rule_read.properties
+        properties.description = AAZStrType()
+        properties.end_ip_address = AAZStrType(
+            serialized_name="endIpAddress",
+            flags={"required": True},
+        )
+        properties.provisioning_state = AAZStrType(
+            serialized_name="provisioningState",
+            flags={"read_only": True},
+        )
+        properties.start_ip_address = AAZStrType(
+            serialized_name="startIpAddress",
+            flags={"required": True},
+        )
+
+        system_data = _schema_firewall_rule_read.system_data
+        system_data.created_at = AAZStrType(
+            serialized_name="createdAt",
+        )
+        system_data.created_by = AAZStrType(
+            serialized_name="createdBy",
+        )
+        system_data.created_by_type = AAZStrType(
+            serialized_name="createdByType",
+        )
+        system_data.last_modified_at = AAZStrType(
+            serialized_name="lastModifiedAt",
+        )
+        system_data.last_modified_by = AAZStrType(
+            serialized_name="lastModifiedBy",
+        )
+        system_data.last_modified_by_type = AAZStrType(
+            serialized_name="lastModifiedByType",
+        )
+
+        _schema.id = cls._schema_firewall_rule_read.id
+        _schema.name = cls._schema_firewall_rule_read.name
+        _schema.properties = cls._schema_firewall_rule_read.properties
+        _schema.system_data = cls._schema_firewall_rule_read.system_data
+        _schema.type = cls._schema_firewall_rule_read.type
 
 
 __all__ = ["Update"]

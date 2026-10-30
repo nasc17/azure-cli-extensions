@@ -15,7 +15,18 @@ from azure.cli.core.aaz import *
     "horizondb cluster pool wait",
 )
 class Wait(AAZWaitCommand):
-    """Place the CLI in a waiting state until a condition is met.
+    """Wait for changes to a compute pool.
+
+    Place the CLI in a waiting state until a condition is met. Polls the resource until the selected condition
+    succeeds. Use --custom for a JMESPath condition, --interval for the polling interval, and --timeout to limit the
+    wait.
+
+    :example: Wait for the resource.
+    az horizondb cluster pool wait -g example-rg --cluster-name example-cluster --name primary --custom
+    "state=='Ready'"
+
+    :example: Wait for pool deletion after asynchronous delete.
+    az horizondb cluster pool wait -g example-rg --cluster-name example-cluster --name primary --deleted
     """
 
     _aaz_info = {
@@ -42,7 +53,14 @@ class Wait(AAZWaitCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -51,9 +69,16 @@ class Wait(AAZWaitCommand):
                 min_length=1,
             ),
         )
-        _args_schema.pool_name = AAZStrArg(
-            options=["-n", "--name", "--pool-name"],
-            help="The name of the HorizonDB pool.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB pool.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
             fmt=AAZStrArgFormat(
@@ -64,6 +89,15 @@ class Wait(AAZWaitCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -118,7 +152,7 @@ class Wait(AAZWaitCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "poolName", self.ctx.args.pool_name,
+                    "poolName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -180,7 +214,6 @@ class Wait(AAZWaitCommand):
                 serialized_name="systemData",
                 flags={"read_only": True},
             )
-            _schema_on_200.tags = AAZDictType()
             _schema_on_200.type = AAZStrType(
                 flags={"read_only": True},
             )
@@ -200,7 +233,6 @@ class Wait(AAZWaitCommand):
             )
             properties.parameter_group = AAZObjectType(
                 serialized_name="parameterGroup",
-                flags={"required": True},
             )
             properties.provisioning_state = AAZStrType(
                 serialized_name="provisioningState",
@@ -274,9 +306,6 @@ class Wait(AAZWaitCommand):
             system_data.last_modified_by_type = AAZStrType(
                 serialized_name="lastModifiedByType",
             )
-
-            tags = cls._schema_on_200.tags
-            tags.Element = AAZStrType()
 
             return cls._schema_on_200
 

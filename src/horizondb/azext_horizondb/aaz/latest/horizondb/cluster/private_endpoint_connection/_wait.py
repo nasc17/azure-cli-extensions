@@ -15,7 +15,15 @@ from azure.cli.core.aaz import *
     "horizondb cluster private-endpoint-connection wait",
 )
 class Wait(AAZWaitCommand):
-    """Place the CLI in a waiting state until a condition is met.
+    """Wait for changes to a private endpoint connection.
+
+    Place the CLI in a waiting state until a condition is met. Polls the resource until the selected condition
+    succeeds. Use --custom for a JMESPath condition, --interval for the polling interval, and --timeout to limit the
+    wait.
+
+    :example: Wait for the resource.
+    az horizondb cluster private-endpoint-connection wait -g example-rg --cluster-name example-cluster --name
+    example-pec --custom "privateLinkServiceConnectionState.status=='Approved'"
     """
 
     _aaz_info = {
@@ -42,7 +50,14 @@ class Wait(AAZWaitCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -51,14 +66,30 @@ class Wait(AAZWaitCommand):
                 min_length=1,
             ),
         )
-        _args_schema.private_endpoint_connection_name = AAZStrArg(
-            options=["-n", "--name", "--private-endpoint-connection-name"],
-            help="The name of the private endpoint connection associated with the Azure resource.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the private endpoint connection associated with the Azure resource.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -113,7 +144,7 @@ class Wait(AAZWaitCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "privateEndpointConnectionName", self.ctx.args.private_endpoint_connection_name,
+                    "privateEndpointConnectionName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -170,7 +201,9 @@ class Wait(AAZWaitCommand):
             _schema_on_200.name = AAZStrType(
                 flags={"read_only": True},
             )
-            _schema_on_200.properties = AAZObjectType()
+            _schema_on_200.properties = AAZObjectType(
+                flags={"client_flatten": True},
+            )
             _schema_on_200.system_data = AAZObjectType(
                 serialized_name="systemData",
                 flags={"read_only": True},

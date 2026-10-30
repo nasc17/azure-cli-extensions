@@ -34,19 +34,19 @@ class FirewallRuleTests(TestCase):
         for command_type in [Create, Update, Show, Delete, Wait]:
             schema = command_type.get_arguments_schema()
             # AAZ stores regex constraints as metadata; format_args enforces lengths only.
-            pattern = schema.firewall_rule_name._fmt._pattern  # pylint: disable=protected-access
+            pattern = schema.name._fmt._pattern  # pylint: disable=protected-access
             for name in ['a', 'Allow_Office.1-rule_', 'a' * 80]:
                 with self.subTest(command=command_type.__name__, name=name):
                     command = command_type(loader=self.loader)
-                    args = dict(self.args, firewall_rule_name=name)
+                    args = dict(self.args, name=name)
                     AAZCommand._handler(command, args)  # pylint: disable=protected-access
                     self.assertRegex(name, pattern)
-                    self.assertEqual(command.ctx.args.firewall_rule_name.to_serialized_data(), name)
+                    self.assertEqual(command.ctx.args.name.to_serialized_data(), name)
 
     def test_firewall_rule_name_pattern_rejects_invalid_names(self):
         for command_type in [Create, Update, Show, Delete, Wait]:
             schema = command_type.get_arguments_schema()
-            pattern = schema.firewall_rule_name._fmt._pattern  # pylint: disable=protected-access
+            pattern = schema.name._fmt._pattern  # pylint: disable=protected-access
             for name in ['', '_rule', 'rule.', 'rule-', 'rule/name', 'a' * 81]:
                 with self.subTest(command=command_type.__name__, name=name):
                     self.assertNotRegex(name, pattern)
@@ -55,6 +55,6 @@ class FirewallRuleTests(TestCase):
         for command_type in [Create, Update, Show, Delete, Wait]:
             with self.subTest(command=command_type.__name__):
                 command = command_type(loader=self.loader)
-                args = dict(self.args, firewall_rule_name='a' * 81)
+                args = dict(self.args, name='a' * 81)
                 with self.assertRaises(InvalidArgumentValueError):
                     AAZCommand._handler(command, args)  # pylint: disable=protected-access

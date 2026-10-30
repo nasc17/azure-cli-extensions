@@ -16,10 +16,13 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class List(AAZCommand):
-    """List private endpoint connections in a HorizonDB cluster.
+    """List private endpoint connections.
 
-    :example: List private endpoint connections on a HorizonDB cluster
-        az horizondb cluster private-endpoint-connection list --resource-group example-resource-group --cluster-name example-cluster
+    List private endpoint connections in a HorizonDB cluster. Lists private endpoint connections belonging to the
+    cluster.
+
+    :example: List cluster private endpoint connections.
+    az horizondb cluster private-endpoint-connection list -g example-rg --cluster-name example-cluster
     """
 
     _aaz_info = {
@@ -48,7 +51,14 @@ class List(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
@@ -58,6 +68,15 @@ class List(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -177,7 +196,9 @@ class List(AAZCommand):
             _element.name = AAZStrType(
                 flags={"read_only": True},
             )
-            _element.properties = AAZObjectType()
+            _element.properties = AAZObjectType(
+                flags={"client_flatten": True},
+            )
             _element.system_data = AAZObjectType(
                 serialized_name="systemData",
                 flags={"read_only": True},

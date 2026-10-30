@@ -16,10 +16,13 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Show(AAZCommand):
-    """Get information about a HorizonDB cluster.
+    """Show a HorizonDB cluster.
 
-    :example: Get a HorizonDB cluster
-        az horizondb cluster show --resource-group example-resource-group --cluster-name example-cluster
+    Get information about a HorizonDB cluster. Shows cluster configuration, its read-write pool designation, and
+    provisioning state.
+
+    :example: Show a cluster.
+    az horizondb cluster show -g example-rg -n example-cluster
     """
 
     _aaz_info = {
@@ -45,9 +48,16 @@ class Show(AAZCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.cluster_name = AAZStrArg(
-            options=["-n", "--name", "--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -58,6 +68,15 @@ class Show(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -108,7 +127,7 @@ class Show(AAZCommand):
         def url_parameters(self):
             parameters = {
                 **self.serialize_url_param(
-                    "clusterName", self.ctx.args.cluster_name,
+                    "clusterName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

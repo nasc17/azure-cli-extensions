@@ -15,7 +15,14 @@ from azure.cli.core.aaz import *
     "horizondb parameter-group wait",
 )
 class Wait(AAZWaitCommand):
-    """Place the CLI in a waiting state until a condition is met.
+    """Wait for changes to a parameter group.
+
+    Place the CLI in a waiting state until a condition is met. Polls the resource until the selected condition
+    succeeds. Use --custom for a JMESPath condition, --interval for the polling interval, and --timeout to limit the
+    wait.
+
+    :example: Wait for the resource.
+    az horizondb parameter-group wait -g example-rg --name pg-transactional --updated
     """
 
     _aaz_info = {
@@ -40,9 +47,16 @@ class Wait(AAZWaitCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.parameter_group_name = AAZStrArg(
-            options=["-n", "--name", "--parameter-group-name"],
-            help="The name of the HorizonDB parameter group.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB parameter group.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -53,6 +67,15 @@ class Wait(AAZWaitCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -103,7 +126,7 @@ class Wait(AAZWaitCommand):
         def url_parameters(self):
             parameters = {
                 **self.serialize_url_param(
-                    "parameterGroupName", self.ctx.args.parameter_group_name,
+                    "parameterGroupName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

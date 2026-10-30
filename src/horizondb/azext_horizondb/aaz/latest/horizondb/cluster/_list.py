@@ -16,10 +16,16 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class List(AAZCommand):
-    """List all HorizonDB clusters in a subscription.
+    """List HorizonDB clusters.
 
-    :example: List HorizonDB clusters in a subscription
-        az horizondb cluster list
+    List all HorizonDB clusters in a subscription. Lists clusters in the selected subscription. Supply
+    --resource-group to limit the scope.
+
+    :example: List clusters in a resource group.
+    az horizondb cluster list -g example-rg --output table
+
+    :example: List clusters in a subscription.
+    az horizondb cluster list --subscription "00000000-0000-0000-0000-000000000000" --output table
     """
 
     _aaz_info = {
@@ -47,7 +53,16 @@ class List(AAZCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.resource_group = AAZResourceGroupNameArg()
+        _args_schema.resource_group = AAZResourceGroupNameArg(
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
+        )
         return cls._args_schema
 
     def _execute_operations(self):

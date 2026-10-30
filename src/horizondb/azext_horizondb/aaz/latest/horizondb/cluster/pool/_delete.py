@@ -17,10 +17,20 @@ from azure.cli.core.aaz import *
     confirmation="Are you sure you want to perform this operation?",
 )
 class Delete(AAZCommand):
-    """Delete a HorizonDB pool.
+    """Delete a compute pool.
 
-    :example: Delete the last HorizonDB pool and disconnect private endpoint connections
-        az horizondb cluster pool delete --resource-group example-resource-group --cluster-name example-cluster --pool-name example-pool-01
+    Delete a HorizonDB pool together with the Pool-scoped Endpoint whose associatedResourceId identifies that Pool
+    and all FirewallRule children of that Endpoint. The Endpoint cannot outlive or be deleted independently from its
+    Pool. When this is the Cluster's last surviving Pool, the service also disconnects every existing private
+    endpoint connection associated with the Cluster by setting its privateLinkServiceConnectionState.status to
+    Rejected and providing a description that the last Pool was deleted. The HorizonDB private endpoint connection
+    resources remain available for inspection and cleanup, and customer-owned Microsoft.Network/privateEndpoints
+    resources are not deleted. The delete long-running operation completes only after all required private endpoint
+    disconnections have completed. Deletes the pool, its endpoint, and firewall rules. Deleting the last pool
+    rejects existing private endpoint connections but leaves their connection resources available for cleanup.
+
+    :example: Delete a pool.
+    az horizondb cluster pool delete -g example-rg --cluster-name example-cluster --name primary --yes --no-wait
     """
 
     _aaz_info = {
@@ -49,7 +59,14 @@ class Delete(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -58,9 +75,16 @@ class Delete(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.pool_name = AAZStrArg(
-            options=["-n", "--name", "--pool-name"],
-            help="The name of the HorizonDB pool.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB pool.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
             fmt=AAZStrArgFormat(
@@ -71,6 +95,15 @@ class Delete(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -146,7 +179,7 @@ class Delete(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "poolName", self.ctx.args.pool_name,
+                    "poolName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

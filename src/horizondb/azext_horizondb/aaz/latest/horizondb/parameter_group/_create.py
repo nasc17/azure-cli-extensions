@@ -16,10 +16,14 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Create(AAZCommand):
-    """Create a new HorizonDB parameter group.
+    """Create a parameter group.
 
-    :example: Create or replace a HorizonDB parameter group for a PostgreSQL version
-        az horizondb parameter-group create --resource-group example-resource-group --parameter-group-name production-parameters --location eastus2 --tags "{environment:production}" --version 17 --parameters "[{name:application_name,value:horizondb-production},{name:autovacuum,value:off},{name:wal_receiver_timeout,value:45000},{name:work_mem,value:8192},{name:xmlbinary,value:base64}]" --description Parameters for production transactional workloads
+    Create a new HorizonDB parameter group or replaces an existing parameter group. Creates or replaces a custom
+    PostgreSQL parameter group. The PostgreSQL version is immutable after creation.
+
+    :example: Create a parameter group.
+    az horizondb parameter-group create -g example-rg --name pg-transactional --location eastus2
+    --postgresql-version 17 --parameters "[{name:shared_buffers,value:2048MB},{name:work_mem,value:64MB}]"
     """
 
     _aaz_info = {
@@ -46,9 +50,16 @@ class Create(AAZCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.parameter_group_name = AAZStrArg(
-            options=["-n", "--name", "--parameter-group-name"],
-            help="The name of the HorizonDB parameter group.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB parameter group.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-zA-Z0-9][-a-zA-Z0-9]*[a-zA-Z0-9]$",
@@ -58,6 +69,15 @@ class Create(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
         # define Arg Group "Properties"
@@ -66,7 +86,14 @@ class Create(AAZCommand):
         _args_schema.description = AAZStrArg(
             options=["--description"],
             arg_group="Properties",
-            help="Description of the parameter group. The maximum length is 1024 characters.",
+            help={
+                'short-summary': (
+                    'Description of the parameter group.'
+                ),
+                'long-summary': (
+                    'The maximum length is 1024 characters.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 max_length=1024,
             ),
@@ -74,12 +101,30 @@ class Create(AAZCommand):
         _args_schema.parameters = AAZListArg(
             options=["--parameters"],
             arg_group="Properties",
-            help="Parameters in the parameter group.",
+            help={
+                'short-summary': (
+                    'Parameters.'
+                ),
+                'long-summary': (
+                    'Parameters in the parameter group.'
+                ),
+            },
         )
-        _args_schema.version = AAZStrArg(
-            options=["--version"],
+        _args_schema.postgresql_version = AAZStrArg(
+            options=["--postgresql-version"],
             arg_group="Properties",
-            help={"short-summary": "The PostgreSQL major version for the parameter group.", "long-summary": "This property is required during creation and is immutable thereafter. The service selects the unique location-scoped default parameter group for this version in the resource location. The DefaultParameterGroups APIs return at most one default parameter group for each PostgreSQL version in a location, so this selection is unambiguous."},
+            help={
+                'short-summary': (
+                    'The PostgreSQL major version for the parameter group.'
+                ),
+                'long-summary': (
+                    'This property is required during creation and is immutable thereafter. The '
+                    'service selects the unique location-scoped default parameter group for this '
+                    'version in the resource location. The DefaultParameterGroups APIs return at most'
+                    ' one default parameter group for each PostgreSQL version in a location, so this '
+                    'selection is unambiguous.'
+                ),
+            },
             enum={"17": "17", "18": "18"},
         )
 
@@ -89,11 +134,25 @@ class Create(AAZCommand):
         _element = cls._args_schema.parameters.Element
         _element.name = AAZStrArg(
             options=["name"],
-            help="The name of the parameter.",
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the parameter.'
+                ),
+            },
         )
         _element.value = AAZStrArg(
             options=["value"],
-            help="The value of the configuration.",
+            help={
+                'short-summary': (
+                    'Value.'
+                ),
+                'long-summary': (
+                    'The value of the configuration.'
+                ),
+            },
         )
 
         # define Arg Group "Resource"
@@ -101,7 +160,14 @@ class Create(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.location = AAZResourceLocationArg(
             arg_group="Resource",
-            help="The geo-location where the resource lives",
+            help={
+                'short-summary': (
+                    'Location.'
+                ),
+                'long-summary': (
+                    'The geo-location where the resource lives'
+                ),
+            },
             required=True,
             fmt=AAZResourceLocationArgFormat(
                 resource_group_arg="resource_group",
@@ -110,7 +176,14 @@ class Create(AAZCommand):
         _args_schema.tags = AAZDictArg(
             options=["--tags"],
             arg_group="Resource",
-            help="Resource tags.",
+            help={
+                'short-summary': (
+                    'Tags.'
+                ),
+                'long-summary': (
+                    'Resource tags.'
+                ),
+            },
         )
 
         tags = cls._args_schema.tags
@@ -180,7 +253,7 @@ class Create(AAZCommand):
         def url_parameters(self):
             parameters = {
                 **self.serialize_url_param(
-                    "parameterGroupName", self.ctx.args.parameter_group_name,
+                    "parameterGroupName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -231,7 +304,7 @@ class Create(AAZCommand):
             if properties is not None:
                 properties.set_prop("description", AAZStrType, ".description")
                 properties.set_prop("parameters", AAZListType, ".parameters")
-                properties.set_prop("postgreSqlVersion", AAZStrType, ".version", typ_kwargs={"flags": {"required": True}})
+                properties.set_prop("postgreSqlVersion", AAZStrType, ".postgresql_version", typ_kwargs={"flags": {"required": True}})
 
             parameters = _builder.get(".properties.parameters")
             if parameters is not None:

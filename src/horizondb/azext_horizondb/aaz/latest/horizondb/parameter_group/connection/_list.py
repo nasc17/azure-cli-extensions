@@ -16,10 +16,12 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class List(AAZCommand):
-    """List all connections to a parameter group.
+    """List parameter group connections.
 
-    :example: List HorizonDB pools connected to a parameter group
-        az horizondb parameter-group connection list --resource-group example-resource-group --parameter-group-name production-parameters
+    List all connections to a parameter group. Lists pools associated with the specified custom parameter group.
+
+    :example: List connected pools.
+    az horizondb parameter-group connection list -g example-rg --name pg-transactional
     """
 
     _aaz_info = {
@@ -46,9 +48,16 @@ class List(AAZCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.parameter_group_name = AAZStrArg(
-            options=["--parameter-group-name"],
-            help="The name of the HorizonDB parameter group.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB parameter group.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-zA-Z0-9][-a-zA-Z0-9]*[a-zA-Z0-9]$",
@@ -58,6 +67,15 @@ class List(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -109,7 +127,7 @@ class List(AAZCommand):
         def url_parameters(self):
             parameters = {
                 **self.serialize_url_param(
-                    "parameterGroupName", self.ctx.args.parameter_group_name,
+                    "parameterGroupName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

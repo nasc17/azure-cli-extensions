@@ -16,10 +16,12 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class List(AAZCommand):
-    """List all HorizonDB pools in a cluster.
+    """List compute pools.
 
-    :example: List HorizonDB pools in a cluster
-        az horizondb cluster pool list --resource-group example-resource-group --cluster-name example-cluster
+    List all HorizonDB pools in a cluster. Lists compute pools belonging to the specified cluster.
+
+    :example: List compute pools in a cluster.
+    az horizondb cluster pool list -g example-rg --cluster-name example-cluster --output table
     """
 
     _aaz_info = {
@@ -48,7 +50,14 @@ class List(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
@@ -58,6 +67,15 @@ class List(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -182,7 +200,6 @@ class List(AAZCommand):
                 serialized_name="systemData",
                 flags={"read_only": True},
             )
-            _element.tags = AAZDictType()
             _element.type = AAZStrType(
                 flags={"read_only": True},
             )
@@ -202,7 +219,6 @@ class List(AAZCommand):
             )
             properties.parameter_group = AAZObjectType(
                 serialized_name="parameterGroup",
-                flags={"required": True},
             )
             properties.provisioning_state = AAZStrType(
                 serialized_name="provisioningState",
@@ -276,9 +292,6 @@ class List(AAZCommand):
             system_data.last_modified_by_type = AAZStrType(
                 serialized_name="lastModifiedByType",
             )
-
-            tags = cls._schema_on_200.value.Element.tags
-            tags.Element = AAZStrType()
 
             return cls._schema_on_200
 

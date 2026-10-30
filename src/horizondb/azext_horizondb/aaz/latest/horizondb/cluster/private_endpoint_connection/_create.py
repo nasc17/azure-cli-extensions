@@ -18,8 +18,15 @@ from azure.cli.core.aaz import *
 class Create(AAZCommand):
     """Create a private endpoint connection.
 
-    :example: Approve or reject a private endpoint connection
-        az horizondb cluster private-endpoint-connection create --resource-group example-resource-group --cluster-name example-cluster --private-endpoint-connection-name example-private-endpoint-connection --status Approved --description Approved for the production database network
+    Create an existing private endpoint connection. Approval requires the parent Cluster to contain at least one
+    Pool. An approval attempt when the Cluster has no Pools fails with 409 Conflict and the stable error code
+    PrivateEndpointRequiresPool. Rejection remains allowed when the Cluster has no Pools so that existing
+    connections can be cleaned up. Replaces approval state on an existing private endpoint connection. The cluster
+    needs a pool before a connection can be approved.
+
+    :example: Set private endpoint approval.
+    az horizondb cluster private-endpoint-connection create -g example-rg --cluster-name example-cluster --name
+    example-pec --private-link-service-connection-state "{status:Approved,description:Reviewed}"
     """
 
     _aaz_info = {
@@ -48,7 +55,14 @@ class Create(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
@@ -56,32 +70,83 @@ class Create(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.private_endpoint_connection_name = AAZStrArg(
-            options=["-n", "--name", "--private-endpoint-connection-name"],
-            help="The name of the private endpoint connection associated with the Azure resource.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the private endpoint connection associated with the Azure resource.'
+                ),
+            },
             required=True,
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
-        # define Arg Group "PrivateLinkServiceConnectionState"
+        # define Arg Group "Properties"
 
         _args_schema = cls._args_schema
-        _args_schema.actions_required = AAZStrArg(
-            options=["--actions-required"],
-            arg_group="PrivateLinkServiceConnectionState",
-            help="A message indicating if changes on the service provider require any updates on the consumer.",
+        _args_schema.private_link_service_connection_state = AAZObjectArg(
+            options=["--private-link-service-connection-state"],
+            arg_group="Properties",
+            help={
+                'short-summary': (
+                    'Private link service connection state.'
+                ),
+                'long-summary': (
+                    'A collection of information about the state of the connection between service '
+                    'consumer and provider.'
+                ),
+            },
         )
-        _args_schema.description = AAZStrArg(
-            options=["--description"],
-            arg_group="PrivateLinkServiceConnectionState",
-            help="The reason for approval/rejection of the connection.",
+
+        private_link_service_connection_state = cls._args_schema.private_link_service_connection_state
+        private_link_service_connection_state.actions_required = AAZStrArg(
+            options=["actions-required"],
+            help={
+                'short-summary': (
+                    'Actions required.'
+                ),
+                'long-summary': (
+                    'A message indicating if changes on the service provider require any updates on '
+                    'the consumer.'
+                ),
+            },
         )
-        _args_schema.status = AAZStrArg(
-            options=["--status"],
-            arg_group="PrivateLinkServiceConnectionState",
-            help="Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.",
+        private_link_service_connection_state.description = AAZStrArg(
+            options=["description"],
+            help={
+                'short-summary': (
+                    'Description.'
+                ),
+                'long-summary': (
+                    'The reason for approval/rejection of the connection.'
+                ),
+            },
+        )
+        private_link_service_connection_state.status = AAZStrArg(
+            options=["status"],
+            help={
+                'short-summary': (
+                    'Status.'
+                ),
+                'long-summary': (
+                    'Indicates whether the connection has been Approved/Rejected/Removed by the owner'
+                    ' of the service.'
+                ),
+            },
             enum={"Approved": "Approved", "Pending": "Pending", "Rejected": "Rejected"},
         )
         return cls._args_schema
@@ -153,7 +218,7 @@ class Create(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "privateEndpointConnectionName", self.ctx.args.private_endpoint_connection_name,
+                    "privateEndpointConnectionName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -196,11 +261,11 @@ class Create(AAZCommand):
                 typ=AAZObjectType,
                 typ_kwargs={"flags": {"required": True, "client_flatten": True}}
             )
-            _builder.set_prop("properties", AAZObjectType)
+            _builder.set_prop("properties", AAZObjectType, typ_kwargs={"flags": {"client_flatten": True}})
 
             properties = _builder.get(".properties")
             if properties is not None:
-                properties.set_prop("privateLinkServiceConnectionState", AAZObjectType, ".", typ_kwargs={"flags": {"required": True}})
+                properties.set_prop("privateLinkServiceConnectionState", AAZObjectType, ".private_link_service_connection_state", typ_kwargs={"flags": {"required": True}})
 
             private_link_service_connection_state = _builder.get(".properties.privateLinkServiceConnectionState")
             if private_link_service_connection_state is not None:
@@ -234,7 +299,9 @@ class Create(AAZCommand):
             _schema_on_200_201.name = AAZStrType(
                 flags={"read_only": True},
             )
-            _schema_on_200_201.properties = AAZObjectType()
+            _schema_on_200_201.properties = AAZObjectType(
+                flags={"client_flatten": True},
+            )
             _schema_on_200_201.system_data = AAZObjectType(
                 serialized_name="systemData",
                 flags={"read_only": True},

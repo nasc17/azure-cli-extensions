@@ -16,10 +16,18 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Create(AAZCommand):
-    """Create a HorizonDB pool firewall rule.
+    """Create a pool firewall rule.
 
-    :example: Create or replace a firewall rule on a HorizonDB pool
-        az horizondb cluster pool firewall-rule create --resource-group example-resource-group --cluster-name example-cluster --pool-name example-pool-01 --firewall-rule-name example-firewall-rule-01 --start-ip-address 10.0.0.1 --end-ip-address 10.0.0.254 --description Allow access from the corporate network
+    Create a HorizonDB pool firewall rule. Creates or replaces a pool IPv4 firewall rule. Supply the complete
+    desired address range on replacement.
+
+    :example: Create a firewall rule.
+    az horizondb cluster pool firewall-rule create -g example-rg --cluster-name example-cluster --pool-name primary
+    --name office-client --start-ip-address 203.0.113.10 --end-ip-address 203.0.113.10
+
+    :example: Replace a firewall rule.
+    az horizondb cluster pool firewall-rule create -g example-rg --cluster-name example-cluster --pool-name primary
+    --name office-client --start-ip-address 203.0.113.10 --end-ip-address 203.0.113.10 --description "Office egress"
     """
 
     _aaz_info = {
@@ -48,7 +56,14 @@ class Create(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
@@ -56,9 +71,18 @@ class Create(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.firewall_rule_name = AAZStrArg(
-            options=["-n", "--name", "--firewall-rule-name"],
-            help="The name of the HorizonDB pool firewall rule.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'The name of the HorizonDB pool firewall rule.'
+                ),
+                'long-summary': (
+                    'The name must be 1 through 80 characters, contain only ASCII letters, digits, '
+                    'underscores, periods, and hyphens, start with a letter or digit, and end with a '
+                    'letter, digit, or underscore.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-zA-Z0-9](?:[a-zA-Z0-9_.-]{0,78}[a-zA-Z0-9_])?$",
@@ -68,7 +92,14 @@ class Create(AAZCommand):
         )
         _args_schema.pool_name = AAZStrArg(
             options=["--pool-name"],
-            help="The name of the HorizonDB pool.",
+            help={
+                'short-summary': (
+                    'Pool name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB pool.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
@@ -78,6 +109,15 @@ class Create(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
         # define Arg Group "Properties"
@@ -86,7 +126,14 @@ class Create(AAZCommand):
         _args_schema.description = AAZStrArg(
             options=["--description"],
             arg_group="Properties",
-            help="The description of the HorizonDB firewall rule. The maximum length is 1024 characters.",
+            help={
+                'short-summary': (
+                    'The description of the HorizonDB firewall rule.'
+                ),
+                'long-summary': (
+                    'The maximum length is 1024 characters.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 max_length=1024,
             ),
@@ -94,7 +141,14 @@ class Create(AAZCommand):
         _args_schema.end_ip_address = AAZStrArg(
             options=["--end-ip-address"],
             arg_group="Properties",
-            help="The end IPv4 address of the firewall rule in dotted-decimal notation. This address must be numerically greater than or equal to startIpAddress.",
+            help={
+                'short-summary': (
+                    'The end IPv4 address of the firewall rule in dotted-decimal notation.'
+                ),
+                'long-summary': (
+                    'This address must be numerically greater than or equal to startIpAddress.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 pattern="^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])[.]){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$",
             ),
@@ -102,7 +156,14 @@ class Create(AAZCommand):
         _args_schema.start_ip_address = AAZStrArg(
             options=["--start-ip-address"],
             arg_group="Properties",
-            help="The start IPv4 address of the firewall rule in dotted-decimal notation.",
+            help={
+                'short-summary': (
+                    'Start ip address.'
+                ),
+                'long-summary': (
+                    'The start IPv4 address of the firewall rule in dotted-decimal notation.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 pattern="^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])[.]){3}(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])$",
             ),
@@ -176,7 +237,7 @@ class Create(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "firewallRuleName", self.ctx.args.firewall_rule_name,
+                    "firewallRuleName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

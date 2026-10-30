@@ -16,10 +16,17 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Update(AAZCommand):
-    """Update an existing private endpoint connection. Approval requires the parent Cluster to contain at least one Pool. An approval attempt when the Cluster has no Pools fails with 409 Conflict and the stable error code PrivateEndpointRequiresPool. Rejection remains allowed when the Cluster has no Pools so that existing connections can be cleaned up.
+    """Update a private endpoint connection.
 
-    :example: Approve or reject a private endpoint connection
-        az horizondb cluster private-endpoint-connection update --resource-group example-resource-group --cluster-name example-cluster --private-endpoint-connection-name example-private-endpoint-connection --status Approved
+    Update an existing private endpoint connection. Approval requires the parent Cluster to contain at least one
+    Pool. An approval attempt when the Cluster has no Pools fails with 409 Conflict and the stable error code
+    PrivateEndpointRequiresPool. Rejection remains allowed when the Cluster has no Pools so that existing
+    connections can be cleaned up. Reads an existing connection and replaces its approval state using PUT. The
+    cluster needs a pool before a connection can be approved.
+
+    :example: Update private endpoint approval.
+    az horizondb cluster private-endpoint-connection update -g example-rg --cluster-name example-cluster --name
+    example-pec --private-link-service-connection-state "{status:Rejected,description:Unrecognized}"
     """
 
     _aaz_info = {
@@ -50,7 +57,14 @@ class Update(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -59,35 +73,86 @@ class Update(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.private_endpoint_connection_name = AAZStrArg(
-            options=["-n", "--name", "--private-endpoint-connection-name"],
-            help="The name of the private endpoint connection associated with the Azure resource.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the private endpoint connection associated with the Azure resource.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
-        # define Arg Group "PrivateLinkServiceConnectionState"
+        # define Arg Group "Properties"
 
         _args_schema = cls._args_schema
-        _args_schema.actions_required = AAZStrArg(
-            options=["--actions-required"],
-            arg_group="PrivateLinkServiceConnectionState",
-            help="A message indicating if changes on the service provider require any updates on the consumer.",
+        _args_schema.private_link_service_connection_state = AAZObjectArg(
+            options=["--private-link-service-connection-state"],
+            arg_group="Properties",
+            help={
+                'short-summary': (
+                    'Private link service connection state.'
+                ),
+                'long-summary': (
+                    'A collection of information about the state of the connection between service '
+                    'consumer and provider.'
+                ),
+            },
+        )
+
+        private_link_service_connection_state = cls._args_schema.private_link_service_connection_state
+        private_link_service_connection_state.actions_required = AAZStrArg(
+            options=["actions-required"],
+            help={
+                'short-summary': (
+                    'Actions required.'
+                ),
+                'long-summary': (
+                    'A message indicating if changes on the service provider require any updates on '
+                    'the consumer.'
+                ),
+            },
             nullable=True,
         )
-        _args_schema.description = AAZStrArg(
-            options=["--description"],
-            arg_group="PrivateLinkServiceConnectionState",
-            help="The reason for approval/rejection of the connection.",
+        private_link_service_connection_state.description = AAZStrArg(
+            options=["description"],
+            help={
+                'short-summary': (
+                    'Description.'
+                ),
+                'long-summary': (
+                    'The reason for approval/rejection of the connection.'
+                ),
+            },
             nullable=True,
         )
-        _args_schema.status = AAZStrArg(
-            options=["--status"],
-            arg_group="PrivateLinkServiceConnectionState",
-            help="Indicates whether the connection has been Approved/Rejected/Removed by the owner of the service.",
+        private_link_service_connection_state.status = AAZStrArg(
+            options=["status"],
+            help={
+                'short-summary': (
+                    'Status.'
+                ),
+                'long-summary': (
+                    'Indicates whether the connection has been Approved/Rejected/Removed by the owner'
+                    ' of the service.'
+                ),
+            },
             nullable=True,
             enum={"Approved": "Approved", "Pending": "Pending", "Rejected": "Rejected"},
         )
@@ -157,7 +222,7 @@ class Update(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "privateEndpointConnectionName", self.ctx.args.private_endpoint_connection_name,
+                    "privateEndpointConnectionName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -206,74 +271,7 @@ class Update(AAZCommand):
                 return cls._schema_on_200
 
             cls._schema_on_200 = AAZObjectType()
-
-            _schema_on_200 = cls._schema_on_200
-            _schema_on_200.id = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200.name = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200.properties = AAZObjectType()
-            _schema_on_200.system_data = AAZObjectType(
-                serialized_name="systemData",
-                flags={"read_only": True},
-            )
-            _schema_on_200.type = AAZStrType(
-                flags={"read_only": True},
-            )
-
-            properties = cls._schema_on_200.properties
-            properties.group_ids = AAZListType(
-                serialized_name="groupIds",
-                flags={"read_only": True},
-            )
-            properties.private_endpoint = AAZObjectType(
-                serialized_name="privateEndpoint",
-            )
-            properties.private_link_service_connection_state = AAZObjectType(
-                serialized_name="privateLinkServiceConnectionState",
-                flags={"required": True},
-            )
-            properties.provisioning_state = AAZStrType(
-                serialized_name="provisioningState",
-                flags={"read_only": True},
-            )
-
-            group_ids = cls._schema_on_200.properties.group_ids
-            group_ids.Element = AAZStrType()
-
-            private_endpoint = cls._schema_on_200.properties.private_endpoint
-            private_endpoint.id = AAZStrType(
-                flags={"read_only": True},
-            )
-
-            private_link_service_connection_state = cls._schema_on_200.properties.private_link_service_connection_state
-            private_link_service_connection_state.actions_required = AAZStrType(
-                serialized_name="actionsRequired",
-            )
-            private_link_service_connection_state.description = AAZStrType()
-            private_link_service_connection_state.status = AAZStrType()
-
-            system_data = cls._schema_on_200.system_data
-            system_data.created_at = AAZStrType(
-                serialized_name="createdAt",
-            )
-            system_data.created_by = AAZStrType(
-                serialized_name="createdBy",
-            )
-            system_data.created_by_type = AAZStrType(
-                serialized_name="createdByType",
-            )
-            system_data.last_modified_at = AAZStrType(
-                serialized_name="lastModifiedAt",
-            )
-            system_data.last_modified_by = AAZStrType(
-                serialized_name="lastModifiedBy",
-            )
-            system_data.last_modified_by_type = AAZStrType(
-                serialized_name="lastModifiedByType",
-            )
+            _UpdateHelper._build_schema_private_endpoint_connection_read(cls._schema_on_200)
 
             return cls._schema_on_200
 
@@ -327,7 +325,7 @@ class Update(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "privateEndpointConnectionName", self.ctx.args.private_endpoint_connection_name,
+                    "privateEndpointConnectionName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -388,74 +386,7 @@ class Update(AAZCommand):
                 return cls._schema_on_200_201
 
             cls._schema_on_200_201 = AAZObjectType()
-
-            _schema_on_200_201 = cls._schema_on_200_201
-            _schema_on_200_201.id = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200_201.name = AAZStrType(
-                flags={"read_only": True},
-            )
-            _schema_on_200_201.properties = AAZObjectType()
-            _schema_on_200_201.system_data = AAZObjectType(
-                serialized_name="systemData",
-                flags={"read_only": True},
-            )
-            _schema_on_200_201.type = AAZStrType(
-                flags={"read_only": True},
-            )
-
-            properties = cls._schema_on_200_201.properties
-            properties.group_ids = AAZListType(
-                serialized_name="groupIds",
-                flags={"read_only": True},
-            )
-            properties.private_endpoint = AAZObjectType(
-                serialized_name="privateEndpoint",
-            )
-            properties.private_link_service_connection_state = AAZObjectType(
-                serialized_name="privateLinkServiceConnectionState",
-                flags={"required": True},
-            )
-            properties.provisioning_state = AAZStrType(
-                serialized_name="provisioningState",
-                flags={"read_only": True},
-            )
-
-            group_ids = cls._schema_on_200_201.properties.group_ids
-            group_ids.Element = AAZStrType()
-
-            private_endpoint = cls._schema_on_200_201.properties.private_endpoint
-            private_endpoint.id = AAZStrType(
-                flags={"read_only": True},
-            )
-
-            private_link_service_connection_state = cls._schema_on_200_201.properties.private_link_service_connection_state
-            private_link_service_connection_state.actions_required = AAZStrType(
-                serialized_name="actionsRequired",
-            )
-            private_link_service_connection_state.description = AAZStrType()
-            private_link_service_connection_state.status = AAZStrType()
-
-            system_data = cls._schema_on_200_201.system_data
-            system_data.created_at = AAZStrType(
-                serialized_name="createdAt",
-            )
-            system_data.created_by = AAZStrType(
-                serialized_name="createdBy",
-            )
-            system_data.created_by_type = AAZStrType(
-                serialized_name="createdByType",
-            )
-            system_data.last_modified_at = AAZStrType(
-                serialized_name="lastModifiedAt",
-            )
-            system_data.last_modified_by = AAZStrType(
-                serialized_name="lastModifiedBy",
-            )
-            system_data.last_modified_by_type = AAZStrType(
-                serialized_name="lastModifiedByType",
-            )
+            _UpdateHelper._build_schema_private_endpoint_connection_read(cls._schema_on_200_201)
 
             return cls._schema_on_200_201
 
@@ -470,11 +401,11 @@ class Update(AAZCommand):
                 value=instance,
                 typ=AAZObjectType
             )
-            _builder.set_prop("properties", AAZObjectType)
+            _builder.set_prop("properties", AAZObjectType, typ_kwargs={"flags": {"client_flatten": True}})
 
             properties = _builder.get(".properties")
             if properties is not None:
-                properties.set_prop("privateLinkServiceConnectionState", AAZObjectType, ".", typ_kwargs={"flags": {"required": True}})
+                properties.set_prop("privateLinkServiceConnectionState", AAZObjectType, ".private_link_service_connection_state", typ_kwargs={"flags": {"required": True}})
 
             private_link_service_connection_state = _builder.get(".properties.privateLinkServiceConnectionState")
             if private_link_service_connection_state is not None:
@@ -495,6 +426,96 @@ class Update(AAZCommand):
 
 class _UpdateHelper:
     """Helper class for Update"""
+
+    _schema_private_endpoint_connection_read = None
+
+    @classmethod
+    def _build_schema_private_endpoint_connection_read(cls, _schema):
+        if cls._schema_private_endpoint_connection_read is not None:
+            _schema.id = cls._schema_private_endpoint_connection_read.id
+            _schema.name = cls._schema_private_endpoint_connection_read.name
+            _schema.properties = cls._schema_private_endpoint_connection_read.properties
+            _schema.system_data = cls._schema_private_endpoint_connection_read.system_data
+            _schema.type = cls._schema_private_endpoint_connection_read.type
+            return
+
+        cls._schema_private_endpoint_connection_read = _schema_private_endpoint_connection_read = AAZObjectType()
+
+        private_endpoint_connection_read = _schema_private_endpoint_connection_read
+        private_endpoint_connection_read.id = AAZStrType(
+            flags={"read_only": True},
+        )
+        private_endpoint_connection_read.name = AAZStrType(
+            flags={"read_only": True},
+        )
+        private_endpoint_connection_read.properties = AAZObjectType(
+            flags={"client_flatten": True},
+        )
+        private_endpoint_connection_read.system_data = AAZObjectType(
+            serialized_name="systemData",
+            flags={"read_only": True},
+        )
+        private_endpoint_connection_read.type = AAZStrType(
+            flags={"read_only": True},
+        )
+
+        properties = _schema_private_endpoint_connection_read.properties
+        properties.group_ids = AAZListType(
+            serialized_name="groupIds",
+            flags={"read_only": True},
+        )
+        properties.private_endpoint = AAZObjectType(
+            serialized_name="privateEndpoint",
+        )
+        properties.private_link_service_connection_state = AAZObjectType(
+            serialized_name="privateLinkServiceConnectionState",
+            flags={"required": True},
+        )
+        properties.provisioning_state = AAZStrType(
+            serialized_name="provisioningState",
+            flags={"read_only": True},
+        )
+
+        group_ids = _schema_private_endpoint_connection_read.properties.group_ids
+        group_ids.Element = AAZStrType()
+
+        private_endpoint = _schema_private_endpoint_connection_read.properties.private_endpoint
+        private_endpoint.id = AAZStrType(
+            flags={"read_only": True},
+        )
+
+        private_link_service_connection_state = _schema_private_endpoint_connection_read.properties.private_link_service_connection_state
+        private_link_service_connection_state.actions_required = AAZStrType(
+            serialized_name="actionsRequired",
+        )
+        private_link_service_connection_state.description = AAZStrType()
+        private_link_service_connection_state.status = AAZStrType()
+
+        system_data = _schema_private_endpoint_connection_read.system_data
+        system_data.created_at = AAZStrType(
+            serialized_name="createdAt",
+        )
+        system_data.created_by = AAZStrType(
+            serialized_name="createdBy",
+        )
+        system_data.created_by_type = AAZStrType(
+            serialized_name="createdByType",
+        )
+        system_data.last_modified_at = AAZStrType(
+            serialized_name="lastModifiedAt",
+        )
+        system_data.last_modified_by = AAZStrType(
+            serialized_name="lastModifiedBy",
+        )
+        system_data.last_modified_by_type = AAZStrType(
+            serialized_name="lastModifiedByType",
+        )
+
+        _schema.id = cls._schema_private_endpoint_connection_read.id
+        _schema.name = cls._schema_private_endpoint_connection_read.name
+        _schema.properties = cls._schema_private_endpoint_connection_read.properties
+        _schema.system_data = cls._schema_private_endpoint_connection_read.system_data
+        _schema.type = cls._schema_private_endpoint_connection_read.type
 
 
 __all__ = ["Update"]

@@ -16,10 +16,18 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Update(AAZCommand):
-    """Update an existing HorizonDB parameter group. Each connected pool's applyMethod setting controls whether dynamic parameter changes become effective immediately or remain pending until a customer-initiated pool Restart. Static parameter changes always remain pending until a customer-initiated pool Restart. Stop followed by Start and scheduled maintenance do not apply pending changes. The operation fails with a conflict while a previous update to this parameter group is still being processed.
+    """Update a parameter group.
 
-    :example: Update a HorizonDB parameter group
-        az horizondb parameter-group update --resource-group example-resource-group --parameter-group-name production-parameters --tags "{environment:production}" --parameters "[{name:application_name,value:horizondb-production},{name:autovacuum,value:off},{name:wal_receiver_timeout,value:45000},{name:work_mem,value:8192},{name:xmlbinary,value:base64}]" --description Parameters for production transactional workloads
+    Update an existing HorizonDB parameter group. Each connected pool's applyMethod setting controls whether dynamic
+    parameter changes become effective immediately or remain pending until a customer-initiated pool Restart. Static
+    parameter changes always remain pending until a customer-initiated pool Restart. Stop followed by Start and
+    scheduled maintenance do not apply pending changes. The operation fails with a conflict while a previous update
+    to this parameter group is still being processed. Updates parameter overrides, description, or tags. Static
+    parameter changes require a customer-initiated restart of connected pools.
+
+    :example: Update a parameter.
+    az horizondb parameter-group update -g example-rg --name pg-transactional --parameters
+    "[{name:work_mem,value:96MB}]"
     """
 
     _aaz_info = {
@@ -46,9 +54,16 @@ class Update(AAZCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.parameter_group_name = AAZStrArg(
-            options=["-n", "--name", "--parameter-group-name"],
-            help="The name of the HorizonDB parameter group.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB parameter group.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -59,6 +74,15 @@ class Update(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
         # define Arg Group "Properties"
@@ -67,7 +91,14 @@ class Update(AAZCommand):
         _args_schema.description = AAZStrArg(
             options=["--description"],
             arg_group="Properties",
-            help="Description of the parameter group. The maximum length is 1024 characters.",
+            help={
+                'short-summary': (
+                    'Description of the parameter group.'
+                ),
+                'long-summary': (
+                    'The maximum length is 1024 characters.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 max_length=1024,
             ),
@@ -75,12 +106,26 @@ class Update(AAZCommand):
         _args_schema.parameters = AAZListArg(
             options=["--parameters"],
             arg_group="Properties",
-            help="Parameters in the parameter group.",
+            help={
+                'short-summary': (
+                    'Parameters.'
+                ),
+                'long-summary': (
+                    'Parameters in the parameter group.'
+                ),
+            },
         )
         _args_schema.tags = AAZDictArg(
             options=["--tags"],
             arg_group="Properties",
-            help="Resource tags.",
+            help={
+                'short-summary': (
+                    'Tags.'
+                ),
+                'long-summary': (
+                    'Resource tags.'
+                ),
+            },
         )
 
         parameters = cls._args_schema.parameters
@@ -89,11 +134,25 @@ class Update(AAZCommand):
         _element = cls._args_schema.parameters.Element
         _element.name = AAZStrArg(
             options=["name"],
-            help="The name of the parameter.",
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the parameter.'
+                ),
+            },
         )
         _element.value = AAZStrArg(
             options=["value"],
-            help="The value of the configuration.",
+            help={
+                'short-summary': (
+                    'Value.'
+                ),
+                'long-summary': (
+                    'The value of the configuration.'
+                ),
+            },
         )
 
         tags = cls._args_schema.tags
@@ -163,7 +222,7 @@ class Update(AAZCommand):
         def url_parameters(self):
             parameters = {
                 **self.serialize_url_param(
-                    "parameterGroupName", self.ctx.args.parameter_group_name,
+                    "parameterGroupName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

@@ -16,10 +16,7 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Create(AAZCommand):
-    """Create a new HorizonDB pool.
-
-    :example: Create a minimum provisioned HorizonDB pool
-        az horizondb cluster pool create --resource-group example-resource-group --cluster-name example-cluster --pool-name example-pool-01 --type Provisioned --compute-processor AMD --compute-generation 3 --v-cores 2 --parameter-group-resource-id /subscriptions/ffffffff-ffff-ffff-ffff-ffffffffffff/providers/Microsoft.HorizonDb/locations/eastus2/parameterGroups/default-postgresql-17-provisioned --parameter-group-apply-method Immediate --node-count 1 --high-availability-mode Disabled
+    """Create a new HorizonDB pool or replaces an existing pool, including its node allocation, compute model, high-availability configuration, or associated parameter group. nodeCount and highAvailability.mode are required and have no service defaults. nodeCount must be 1 through 16. Disabled is valid only when nodeCount is 1. AnyZone and ZoneRedundant are valid only when nodeCount is 2 through 16. AnyZone permits same-zone or cross-zone placement, while ZoneRedundant requires nodes to be allocated across availability zones. Node allocation and high-availability reconfiguration are atomic: if all requested nodes or the required zonal topology cannot be provisioned, the long-running operation fails and the previous resource state is preserved. A pool name must differ from its parent cluster name because the Cluster-scoped ReadWrite Endpoint is named after the Cluster and the Pool-scoped ReadOnly Endpoint is named after the Pool; the service rejects a request whose names would collide. Creating a pool also creates exactly one service-managed Pool-scoped ReadOnly Endpoint representing that Pool and its network boundary. The Endpoint's associatedResourceId identifies the Pool, and the Endpoint cannot outlive or be deleted independently from it. When the first pool is created, the service automatically designates it to host the cluster's read-write node when an eligible node is available. A Cluster must contain at least one Pool before a private endpoint connection can be created or approved. This API version supports at most one pool per cluster; an attempt to create another pool is rejected with 409 Conflict. parameterGroup is optional during creation. When omitted during creation, the service applies the default parameter group compatible with the parent cluster's PostgreSQL version. When parameterGroup is supplied, parameterGroupResourceId and applyMethod are required. When creating a new pool in this API version, a supplied parameterGroupResourceId must identify the corresponding default parameter group; a customer-created parameter group is rejected. When replacing an existing pool, the request can switch its association in either direction between the corresponding default parameter group and a customer-created parameter group. applyMethod controls when dynamic parameter changes become effective. Static parameter changes always require a customer-initiated Restart; Stop followed by Start and scheduled maintenance do not apply pending changes. Subtype-specific compute constraints are validated before the resource is changed.
     """
 
     _aaz_info = {
@@ -48,7 +45,14 @@ class Create(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
@@ -56,9 +60,16 @@ class Create(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.pool_name = AAZStrArg(
-            options=["-n", "--name", "--pool-name"],
-            help="The name of the HorizonDB pool.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB pool.'
+                ),
+            },
             required=True,
             fmt=AAZStrArgFormat(
                 pattern="^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$",
@@ -68,6 +79,15 @@ class Create(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
         # define Arg Group "ComputeModel"
@@ -76,7 +96,14 @@ class Create(AAZCommand):
         _args_schema.compute_generation = AAZIntArg(
             options=["--compute-generation"],
             arg_group="ComputeModel",
-            help="The compute generation for the compute model.",
+            help={
+                'short-summary': (
+                    'Compute generation.'
+                ),
+                'long-summary': (
+                    'The compute generation for the compute model.'
+                ),
+            },
             fmt=AAZIntArgFormat(
                 minimum=1,
             ),
@@ -84,13 +111,27 @@ class Create(AAZCommand):
         _args_schema.compute_processor = AAZStrArg(
             options=["--compute-processor"],
             arg_group="ComputeModel",
-            help="The processor type for the compute model.",
+            help={
+                'short-summary': (
+                    'Compute processor.'
+                ),
+                'long-summary': (
+                    'The processor type for the compute model.'
+                ),
+            },
             enum={"AMD": "AMD", "Intel": "Intel"},
         )
         _args_schema.v_cores = AAZIntArg(
             options=["--v-cores"],
             arg_group="ComputeModel",
-            help="The number of vCores. Allowed values are 1 through 192.",
+            help={
+                'short-summary': (
+                    'The number of vCores.'
+                ),
+                'long-summary': (
+                    'Allowed values are 1 through 192.'
+                ),
+            },
             fmt=AAZIntArgFormat(
                 maximum=192,
                 minimum=2,
@@ -103,23 +144,52 @@ class Create(AAZCommand):
         _args_schema.high_availability_mode = AAZStrArg(
             options=["--high-availability-mode"],
             arg_group="HighAvailability",
-            help="The high-availability mode. Disabled is required when nodeCount is 1. AnyZone or ZoneRedundant is required when nodeCount is 2 through 16.",
+            help={
+                'short-summary': (
+                    'The high-availability mode.'
+                ),
+                'long-summary': (
+                    'Disabled is required when nodeCount is 1. AnyZone or ZoneRedundant is required '
+                    'when nodeCount is 2 through 16.'
+                ),
+            },
             enum={"AnyZone": "AnyZone", "Disabled": "Disabled", "ZoneRedundant": "ZoneRedundant"},
         )
 
         # define Arg Group "ParameterGroup"
 
         _args_schema = cls._args_schema
-        _args_schema.parameter_group_apply_method = AAZStrArg(
-            options=["--parameter-group-apply-method"],
+        _args_schema.parameter_apply_method = AAZStrArg(
+            options=["--parameter-apply-method"],
             arg_group="ParameterGroup",
-            help="Determines when dynamic parameter changes from the associated parameter group become effective. Static parameter changes always require a customer-initiated pool Restart, regardless of this value. Stop followed by Start and scheduled maintenance do not apply pending parameter changes.",
+            help={
+                'short-summary': (
+                    'Parameter apply method.'
+                ),
+                'long-summary': (
+                    'Determines when dynamic parameter changes from the associated parameter group '
+                    'become effective. Static parameter changes always require a customer-initiated '
+                    'pool Restart, regardless of this value. Stop followed by Start and scheduled '
+                    'maintenance do not apply pending parameter changes.'
+                ),
+            },
             enum={"Immediate": "Immediate", "PendingReboot": "PendingReboot"},
         )
-        _args_schema.parameter_group_resource_id = AAZResourceIdArg(
-            options=["--parameter-group-resource-id"],
+        _args_schema.parameter_group = AAZResourceIdArg(
+            options=["--parameter-group"],
             arg_group="ParameterGroup",
-            help="The Azure resource ID of the associated parameter group. Initial pool creation in this API version requires the corresponding Microsoft.HorizonDb/locations/parameterGroups resource. For an existing pool, PUT can specify either the corresponding default group or a customer-created Microsoft.HorizonDb/parameterGroups resource.",
+            help={
+                'short-summary': (
+                    'The Azure resource ID of the associated parameter group.'
+                ),
+                'long-summary': (
+                    'When the parameter group is supplied during initial pool creation in this API '
+                    'version, the ID must identify the corresponding '
+                    'Microsoft.HorizonDb/locations/parameterGroups resource. For an existing pool, '
+                    'PUT can specify either the corresponding default group or a customer-created '
+                    'Microsoft.HorizonDb/parameterGroups resource.'
+                ),
+            },
         )
 
         # define Arg Group "Properties"
@@ -128,35 +198,20 @@ class Create(AAZCommand):
         _args_schema.node_count = AAZIntArg(
             options=["--node-count"],
             arg_group="Properties",
-            help="The required number of nodes to allocate and assign to the pool. Allowed values are 1 through 16. To deallocate runtime compute without changing the configured node count, stop the pool.",
+            help={
+                'short-summary': (
+                    'The required number of nodes to allocate and assign to the pool.'
+                ),
+                'long-summary': (
+                    'Allowed values are 1 through 16. To deallocate runtime compute without changing '
+                    'the configured node count, stop the pool.'
+                ),
+            },
             fmt=AAZIntArgFormat(
                 maximum=16,
                 minimum=1,
             ),
         )
-        _args_schema.scheduled_maintenance = AAZObjectArg(
-            options=["--scheduled-maintenance"],
-            arg_group="Properties",
-            help="The scheduled maintenance configuration for the pool. The properties available depend on the selected maintenance management type.",
-        )
-
-        scheduled_maintenance = cls._args_schema.scheduled_maintenance
-        scheduled_maintenance.system = AAZObjectArg(
-            options=["system"],
-            blank={},
-        )
-
-        # define Arg Group "Resource"
-
-        _args_schema = cls._args_schema
-        _args_schema.tags = AAZDictArg(
-            options=["--tags"],
-            arg_group="Resource",
-            help="Resource tags.",
-        )
-
-        tags = cls._args_schema.tags
-        tags.Element = AAZStrArg()
         return cls._args_schema
 
     def _execute_operations(self):
@@ -226,7 +281,7 @@ class Create(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "poolName", self.ctx.args.pool_name,
+                    "poolName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -270,20 +325,19 @@ class Create(AAZCommand):
                 typ_kwargs={"flags": {"required": True, "client_flatten": True}}
             )
             _builder.set_prop("properties", AAZObjectType)
-            _builder.set_prop("tags", AAZDictType, ".tags")
 
             properties = _builder.get(".properties")
             if properties is not None:
                 properties.set_prop("computeModel", AAZObjectType, ".", typ_kwargs={"flags": {"required": True}})
                 properties.set_prop("highAvailability", AAZObjectType, ".", typ_kwargs={"flags": {"required": True}})
                 properties.set_prop("nodeCount", AAZIntType, ".node_count", typ_kwargs={"flags": {"required": True}})
-                properties.set_prop("parameterGroup", AAZObjectType, ".", typ_kwargs={"flags": {"required": True}})
-                properties.set_prop("scheduledMaintenance", AAZObjectType, ".scheduled_maintenance")
+                properties.set_prop("parameterGroup", AAZObjectType)
 
             compute_model = _builder.get(".properties.computeModel")
             if compute_model is not None:
                 compute_model.set_prop("computeGeneration", AAZIntType, ".compute_generation", typ_kwargs={"flags": {"required": True}})
                 compute_model.set_prop("computeProcessor", AAZStrType, ".compute_processor", typ_kwargs={"flags": {"required": True}})
+                compute_model.set_const("type", "Provisioned", AAZStrType, ".", typ_kwargs={"flags": {"required": True}})
                 compute_model.set_prop("vCores", AAZIntType, ".v_cores", typ_kwargs={"flags": {"required": True}})
 
             high_availability = _builder.get(".properties.highAvailability")
@@ -292,17 +346,8 @@ class Create(AAZCommand):
 
             parameter_group = _builder.get(".properties.parameterGroup")
             if parameter_group is not None:
-                parameter_group.set_prop("applyMethod", AAZStrType, ".parameter_group_apply_method", typ_kwargs={"flags": {"required": True}})
-                parameter_group.set_prop("parameterGroupResourceId", AAZStrType, ".parameter_group_resource_id", typ_kwargs={"flags": {"required": True}})
-
-            scheduled_maintenance = _builder.get(".properties.scheduledMaintenance")
-            if scheduled_maintenance is not None:
-                scheduled_maintenance.set_const("maintenanceManagementType", "System", AAZStrType, ".system", typ_kwargs={"flags": {"required": True}})
-                scheduled_maintenance.discriminate_by("maintenanceManagementType", "System")
-
-            tags = _builder.get(".tags")
-            if tags is not None:
-                tags.set_elements(AAZStrType, ".")
+                parameter_group.set_prop("applyMethod", AAZStrType, ".parameter_apply_method", typ_kwargs={"flags": {"required": True}})
+                parameter_group.set_prop("parameterGroupResourceId", AAZStrType, ".parameter_group", typ_kwargs={"flags": {"required": True}})
 
             return self.serialize_content(_content_value)
 
@@ -335,7 +380,6 @@ class Create(AAZCommand):
                 serialized_name="systemData",
                 flags={"read_only": True},
             )
-            _schema_on_200_201.tags = AAZDictType()
             _schema_on_200_201.type = AAZStrType(
                 flags={"read_only": True},
             )
@@ -355,7 +399,6 @@ class Create(AAZCommand):
             )
             properties.parameter_group = AAZObjectType(
                 serialized_name="parameterGroup",
-                flags={"required": True},
             )
             properties.provisioning_state = AAZStrType(
                 serialized_name="provisioningState",
@@ -429,9 +472,6 @@ class Create(AAZCommand):
             system_data.last_modified_by_type = AAZStrType(
                 serialized_name="lastModifiedByType",
             )
-
-            tags = cls._schema_on_200_201.tags
-            tags.Element = AAZStrType()
 
             return cls._schema_on_200_201
 

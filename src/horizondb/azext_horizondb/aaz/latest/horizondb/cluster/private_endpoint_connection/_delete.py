@@ -19,8 +19,11 @@ from azure.cli.core.aaz import *
 class Delete(AAZCommand):
     """Delete a private endpoint connection.
 
-    :example: Delete a private endpoint connection
-        az horizondb cluster private-endpoint-connection delete --resource-group example-resource-group --cluster-name example-cluster --private-endpoint-connection-name example-private-endpoint-connection
+    Deletes the specified private endpoint connection resource.
+
+    :example: Delete a cluster private endpoint connection.
+    az horizondb cluster private-endpoint-connection delete -g example-rg --cluster-name example-cluster --name
+    example-pec --yes
     """
 
     _aaz_info = {
@@ -49,7 +52,14 @@ class Delete(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -58,14 +68,30 @@ class Delete(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.private_endpoint_connection_name = AAZStrArg(
-            options=["-n", "--name", "--private-endpoint-connection-name"],
-            help="The name of the private endpoint connection associated with the Azure resource.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the private endpoint connection associated with the Azure resource.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -141,7 +167,7 @@ class Delete(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "privateEndpointConnectionName", self.ctx.args.private_endpoint_connection_name,
+                    "privateEndpointConnectionName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

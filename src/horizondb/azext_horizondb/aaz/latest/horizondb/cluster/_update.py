@@ -16,10 +16,31 @@ from azure.cli.core.aaz import *
     is_preview=True,
 )
 class Update(AAZCommand):
-    """Update an existing HorizonDB cluster.
+    """Update a HorizonDB cluster.
 
-    :example: Rotate the customer-managed key used by a HorizonDB cluster
-        az horizondb cluster update --resource-group example-resource-group --cluster-name example-cluster --backup-retention-days 14
+    Update an existing HorizonDB cluster. Updates only the supplied cluster settings. Change the encryption key and
+    its identity in separate requests.
+
+    :example: Update public access and backup retention.
+    az horizondb cluster update -g example-rg -n example-cluster --public-access Enabled --backup-retention-days 21
+    --no-wait
+
+    :example: Enable AI model management.
+    az horizondb cluster update -g example-rg -n example-cluster --ai-model-management Enabled
+
+    :example: Update the encryption key.
+    az horizondb cluster update -g example-rg --name encrypted-cluster --data-encryption
+    "{primary-key-uri:'https://example-vault.vault.azure.net/keys/replacement-key'}"
+
+    :example: Assign a managed identity.
+    az horizondb cluster update -g example-rg -n example-cluster --user-assigned
+    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/example-identity"
+
+    :example: Remove a managed identity.
+    az horizondb cluster update --ids
+    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg/providers/Microsoft.HorizonDb/clusters/source-cluster"
+    --remove-user-assigned-identities
+    "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/example-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/example-identity"
     """
 
     _aaz_info = {
@@ -46,9 +67,16 @@ class Update(AAZCommand):
         # define Arg Group ""
 
         _args_schema = cls._args_schema
-        _args_schema.cluster_name = AAZStrArg(
-            options=["-n", "--name", "--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'Name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -59,6 +87,15 @@ class Update(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
 
         # define Arg Group "Backup"
@@ -67,7 +104,14 @@ class Update(AAZCommand):
         _args_schema.backup_retention_days = AAZIntArg(
             options=["--backup-retention-days"],
             arg_group="Backup",
-            help="The number of days that automatic backups are retained.",
+            help={
+                'short-summary': (
+                    'Backup retention days.'
+                ),
+                'long-summary': (
+                    'The number of days that automatic backups are retained.'
+                ),
+            },
             fmt=AAZIntArgFormat(
                 maximum=35,
                 minimum=1,
@@ -76,13 +120,51 @@ class Update(AAZCommand):
 
         # define Arg Group "Identity"
 
+        _args_schema = cls._args_schema
+        _args_schema.mi_system_assigned = AAZStrArg(
+            options=["--system-assigned", "--mi-system-assigned"],
+            arg_group="Identity",
+            help={
+                'short-summary': (
+                    'Mi system assigned.'
+                ),
+                'long-summary': (
+                    'Set the system managed identity.'
+                ),
+            },
+            blank="True",
+        )
+        _args_schema.mi_user_assigned = AAZListArg(
+            options=["--user-assigned", "--mi-user-assigned"],
+            arg_group="Identity",
+            help={
+                'short-summary': (
+                    'Mi user assigned.'
+                ),
+                'long-summary': (
+                    'Set the user managed identities.'
+                ),
+            },
+            blank=[],
+        )
+
+        mi_user_assigned = cls._args_schema.mi_user_assigned
+        mi_user_assigned.Element = AAZStrArg()
+
         # define Arg Group "Network"
 
         _args_schema = cls._args_schema
         _args_schema.public_access = AAZStrArg(
             options=["--public-access"],
             arg_group="Network",
-            help="Specifies whether public access is enabled for the cluster. Omission preserves the current value.",
+            help={
+                'short-summary': (
+                    'Specifies whether public access is enabled for the cluster.'
+                ),
+                'long-summary': (
+                    'Omission preserves the current value.'
+                ),
+            },
             enum={"Disabled": "Disabled", "Enabled": "Enabled"},
         )
 
@@ -92,35 +174,89 @@ class Update(AAZCommand):
         _args_schema.ai_model_management = AAZStrArg(
             options=["--ai-model-management"],
             arg_group="Properties",
-            help="Specifies whether AI Model Management is enabled for the cluster.",
+            help={
+                'short-summary': (
+                    'Ai model management.'
+                ),
+                'long-summary': (
+                    'Specifies whether AI Model Management is enabled for the cluster.'
+                ),
+            },
             enum={"Disabled": "Disabled", "Enabled": "Enabled"},
         )
         _args_schema.data_encryption = AAZObjectArg(
             options=["--data-encryption"],
             arg_group="Properties",
-            help="The data encryption configuration to update for the cluster. Omitted properties preserve their current values. Updates can modify settings within the existing encryption type, but switching between SystemManaged and AzureKeyVault after cluster creation is not supported.",
+            help={
+                'short-summary': (
+                    'The data encryption configuration to update for the cluster.'
+                ),
+                'long-summary': (
+                    'Omitted properties preserve their current values. Updates can modify settings '
+                    'within the existing encryption type, but switching between SystemManaged and '
+                    'AzureKeyVault after cluster creation is not supported.'
+                ),
+            },
         )
         _args_schema.tags = AAZDictArg(
             options=["--tags"],
             arg_group="Properties",
-            help="Resource tags.",
+            help={
+                'short-summary': (
+                    'Tags.'
+                ),
+                'long-summary': (
+                    'Resource tags.'
+                ),
+            },
         )
 
         data_encryption = cls._args_schema.data_encryption
         data_encryption.primary_key_uri = AAZStrArg(
             options=["primary-key-uri"],
-            help="The versionless Azure Key Vault key URI used to encrypt the cluster's primary storage. Key version paths are not supported. This property and primaryUserAssignedIdentityId cannot both change in the same update; the first update must complete before submitting a separate update for the other property.",
+            help={
+                'short-summary': (
+                    "The versionless Azure Key Vault key URI used to encrypt the cluster's primary "
+                    'storage.'
+                ),
+                'long-summary': (
+                    'Key version paths are not supported. This property and '
+                    'primaryUserAssignedIdentityId cannot both change in the same update; the first '
+                    'update must complete before submitting a separate update for the other property.'
+                ),
+            },
             fmt=AAZStrArgFormat(
                 pattern="^https://[A-Za-z0-9-]+[.]vault([.]azure[.]net|[.]usgovcloudapi[.]net|[.]azure[.]cn)/keys/[A-Za-z0-9-]+/?$",
             ),
         )
         data_encryption.primary_user_assigned_identity_id = AAZResourceIdArg(
             options=["primary-user-assigned-identity-id"],
-            help="The Azure resource ID of the user-assigned managed identity used to access the primary encryption key. The identity must also be assigned to the Cluster through its top-level identity property. This property and primaryKeyUri cannot both change in the same update; the first update must complete before submitting a separate update for the other property.",
+            help={
+                'short-summary': (
+                    'Primary user assigned identity id.'
+                ),
+                'long-summary': (
+                    'The Azure resource ID of the user-assigned managed identity used to access the '
+                    'primary encryption key. The identity must also be assigned to the Cluster '
+                    'through its top-level identity property. This property and primaryKeyUri cannot '
+                    'both change in the same update; the first update must complete before submitting'
+                    ' a separate update for the other property.'
+                ),
+            },
         )
         data_encryption.type = AAZStrArg(
             options=["type"],
-            help="The existing data encryption type used by the cluster. PATCH is a sparse update, so this property may be omitted. If provided, it must match the existing encryption type. This value cannot be changed from SystemManaged to AzureKeyVault or from AzureKeyVault to SystemManaged after cluster creation.",
+            help={
+                'short-summary': (
+                    'The existing data encryption type used by the cluster.'
+                ),
+                'long-summary': (
+                    'PATCH is a sparse update, so this property may be omitted. If provided, it must '
+                    'match the existing encryption type. This value cannot be changed from '
+                    'SystemManaged to AzureKeyVault or from AzureKeyVault to SystemManaged after '
+                    'cluster creation.'
+                ),
+            },
             enum={"AzureKeyVault": "AzureKeyVault", "SystemManaged": "SystemManaged"},
         )
 
@@ -191,7 +327,7 @@ class Update(AAZCommand):
         def url_parameters(self):
             parameters = {
                 **self.serialize_url_param(
-                    "clusterName", self.ctx.args.cluster_name,
+                    "clusterName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(
@@ -237,6 +373,15 @@ class Update(AAZCommand):
             _builder.set_prop("identity", AAZIdentityObjectType)
             _builder.set_prop("properties", AAZObjectType)
             _builder.set_prop("tags", AAZDictType, ".tags")
+
+            identity = _builder.get(".identity")
+            if identity is not None:
+                identity.set_prop("userAssigned", AAZListType, ".mi_user_assigned", typ_kwargs={"flags": {"action": "create"}})
+                identity.set_prop("systemAssigned", AAZStrType, ".mi_system_assigned", typ_kwargs={"flags": {"action": "create"}})
+
+            user_assigned = _builder.get(".identity.userAssigned")
+            if user_assigned is not None:
+                user_assigned.set_elements(AAZStrType, ".")
 
             properties = _builder.get(".properties")
             if properties is not None:

@@ -17,10 +17,13 @@ from azure.cli.core.aaz import *
     confirmation="Are you sure you want to perform this operation?",
 )
 class Delete(AAZCommand):
-    """Delete a HorizonDB pool firewall rule.
+    """Delete a pool firewall rule.
 
-    :example: Delete a firewall rule from a HorizonDB pool
-        az horizondb cluster pool firewall-rule delete --resource-group example-resource-group --cluster-name example-cluster --pool-name example-pool-01 --firewall-rule-name example-firewall-rule-01
+    Delete a HorizonDB pool firewall rule. Removes the specified firewall rule from its pool.
+
+    :example: Delete a firewall rule.
+    az horizondb cluster pool firewall-rule delete -g example-rg --cluster-name example-cluster --pool-name primary
+    --name office-client --yes
     """
 
     _aaz_info = {
@@ -49,7 +52,14 @@ class Delete(AAZCommand):
         _args_schema = cls._args_schema
         _args_schema.cluster_name = AAZStrArg(
             options=["--cluster-name"],
-            help="The name of the HorizonDB cluster.",
+            help={
+                'short-summary': (
+                    'Cluster name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB cluster.'
+                ),
+            },
             required=True,
             id_part="name",
             fmt=AAZStrArgFormat(
@@ -58,9 +68,18 @@ class Delete(AAZCommand):
                 min_length=1,
             ),
         )
-        _args_schema.firewall_rule_name = AAZStrArg(
-            options=["-n", "--name", "--firewall-rule-name"],
-            help="The name of the HorizonDB pool firewall rule.",
+        _args_schema.name = AAZStrArg(
+            options=["-n", "--name"],
+            help={
+                'short-summary': (
+                    'The name of the HorizonDB pool firewall rule.'
+                ),
+                'long-summary': (
+                    'The name must be 1 through 80 characters, contain only ASCII letters, digits, '
+                    'underscores, periods, and hyphens, start with a letter or digit, and end with a '
+                    'letter, digit, or underscore.'
+                ),
+            },
             required=True,
             id_part="child_name_2",
             fmt=AAZStrArgFormat(
@@ -71,7 +90,14 @@ class Delete(AAZCommand):
         )
         _args_schema.pool_name = AAZStrArg(
             options=["--pool-name"],
-            help="The name of the HorizonDB pool.",
+            help={
+                'short-summary': (
+                    'Pool name.'
+                ),
+                'long-summary': (
+                    'The name of the HorizonDB pool.'
+                ),
+            },
             required=True,
             id_part="child_name_1",
             fmt=AAZStrArgFormat(
@@ -82,6 +108,15 @@ class Delete(AAZCommand):
         )
         _args_schema.resource_group = AAZResourceGroupNameArg(
             required=True,
+
+            help={
+                'short-summary': (
+                    'Resource group.'
+                ),
+                'long-summary': (
+                    'Name of the resource group containing the HorizonDB resource.'
+                ),
+            },
         )
         return cls._args_schema
 
@@ -157,7 +192,7 @@ class Delete(AAZCommand):
                     required=True,
                 ),
                 **self.serialize_url_param(
-                    "firewallRuleName", self.ctx.args.firewall_rule_name,
+                    "firewallRuleName", self.ctx.args.name,
                     required=True,
                 ),
                 **self.serialize_url_param(

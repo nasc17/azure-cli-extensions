@@ -24,13 +24,13 @@ class ParameterGroupCreateTests(TestCase):
         self.args = {
             'subscription': '00000000-0000-0000-0000-000000000001',
             'resource_group': 'test-rg',
-            'parameter_group_name': 'test-parameters',
+            'name': 'test-parameters',
         }
         self.parameters = [{'name': 'work_mem', 'value': '8192'}]
 
     def test_create_serializes_parameters_and_version(self):
         command = Create(cli_ctx=self.cli_ctx)
-        args = dict(self.args, location='japaneast', version='17',
+        args = dict(self.args, location='japaneast', postgresql_version='17',
                     description='Test parameters', parameters=self.parameters)
         AAZCommand._handler(command, args)  # pylint: disable=protected-access
         with patch.object(command.ctx, 'get_http_client'):

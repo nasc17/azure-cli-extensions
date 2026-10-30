@@ -5,6 +5,8 @@
 
 from azure.cli.core import AzCommandsLoader
 
+from ._help import helps  # pylint: disable=unused-import
+
 
 class HorizonDBCommandsLoader(AzCommandsLoader):
 
@@ -17,15 +19,13 @@ class HorizonDBCommandsLoader(AzCommandsLoader):
             aaz_pkg_name=aaz.__name__,
             args=args
         )
-        from .aaz.latest.horizondb.cluster.custom import ClusterCreate
-        from .aaz.latest.horizondb.cluster.pool.custom import PoolCreate, PoolUpdate
-        self.command_table['horizondb cluster create'] = ClusterCreate(loader=self)
-        self.command_table['horizondb cluster pool create'] = PoolCreate(loader=self)
-        self.command_table['horizondb cluster pool update'] = PoolUpdate(loader=self)
+        from .commands import load_command_table
+        load_command_table(self, args)
         return self.command_table
 
     def load_arguments(self, command):
-        pass
+        from ._params import load_arguments
+        load_arguments(self, command)
 
 
 COMMAND_LOADER_CLS = HorizonDBCommandsLoader
