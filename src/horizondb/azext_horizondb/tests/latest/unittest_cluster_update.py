@@ -79,6 +79,15 @@ class ClusterUpdateTests(TestCase):
             'tags': {'environment': 'test'},
         })
 
+    def test_update_normalizes_versioned_key_uri_without_sending_other_encryption_fields(self):
+        key_uri = 'https://test.vault.azure.net/keys/new-key'
+        for suffix in ['/0123456789abcdef0123456789abcdef', '/0123456789abcdef0123456789abcdef/']:
+            with self.subTest(suffix=suffix):
+                operation = self.build_operation(primary_key_uri=key_uri + suffix)
+                self.assertEqual(operation.content, {
+                    'properties': {'dataEncryption': {'primaryKeyUri': key_uri}},
+                })
+
     def test_empty_encryption_arguments_are_rejected(self):
         for name in ['primary_key_uri', 'primary_user_assigned_identity_id']:
             with self.subTest(argument=name):

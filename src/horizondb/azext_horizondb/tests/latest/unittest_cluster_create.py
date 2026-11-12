@@ -99,6 +99,12 @@ class ClusterCreateTests(TestCase):
         self.assertNotIn('dataEncryption', content['properties'])
         self.assertNotIn('identity', content)
 
+    def test_create_defaults_postgresql_version_and_preserves_explicit_versions(self):
+        for overrides, expected in [({}, '17'), ({'version': '17'}, '17'), ({'version': '18'}, '18')]:
+            with self.subTest(arguments=overrides):
+                content = self.build_content(**overrides)
+                self.assertEqual(content['properties'].get('postgreSqlVersion'), expected)
+
     def test_create_enables_key_vault_encryption_with_both_arguments(self):
         content = self.build_content(
             primary_key_uri='https://test.vault.azure.net/keys/test-key',
@@ -126,6 +132,20 @@ class ClusterCreateTests(TestCase):
                         command(command_args=dict(self.args, **changes)).result()
                 create.assert_not_called()
         self.show_cluster.assert_not_called()
+
+    def test_create_normalizes_versioned_key_uris_and_preserves_versionless_uris(self):
+        key_uri = 'https://test.vault.azure.net/keys/test-key'
+        version = '0123456789abcdef0123456789abcdef'
+        for supplied, expected in [
+                (key_uri + '/' + version, key_uri),
+                (key_uri + '/' + version + '/', key_uri),
+                (key_uri + '/', key_uri + '/')]:
+            with self.subTest(key_uri=supplied):
+                content = self.build_content(
+                    primary_key_uri=supplied,
+                    primary_user_assigned_identity_id=self.identity_id,
+                )
+                self.assertEqual(content['properties']['dataEncryption']['primaryKeyUri'], expected)
 
     def test_pool_commands_keep_compute_and_availability_arguments(self):
         expected_options = {

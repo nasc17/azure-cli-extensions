@@ -181,6 +181,22 @@ class ClusterRestoreTests(TestCase):
         self.assertEqual(content['properties']['creationSourceClusterLocation'], 'japaneast')
         self.assertEqual(self.source, original_source)
 
+    def test_restore_normalizes_versioned_key_uri_and_preserves_identity_assignments(self):
+        key_uri = 'https://target.vault.azure.net/keys/target-key'
+        target_identity_id = self.identity_id.replace('source-identity', 'target-identity')
+        content = self.build_operation(
+            primary_key_uri=key_uri + '/0123456789abcdef0123456789abcdef',
+            primary_user_assigned_identity_id=target_identity_id,
+        ).content
+        self.assertEqual(content['properties']['dataEncryption'], {
+            'type': 'AzureKeyVault',
+            'primaryKeyUri': key_uri,
+            'primaryUserAssignedIdentityId': target_identity_id,
+        })
+        self.assertEqual(content['identity']['userAssignedIdentities'], {
+            self.identity_id: {}, target_identity_id: {},
+        })
+
     def test_restore_assigns_encryption_identity_without_source_assignments(self):
         for source_identity, expected_type in [
                 (None, 'UserAssigned'),

@@ -109,6 +109,7 @@ class ClusterRestore(ClusterCreate):
             content = super().content
             source = self.ctx.vars.restore_source.to_serialized_data()
             properties = content['properties']
+            properties.pop('postgreSqlVersion', None)
             if 'dataEncryption' not in properties:
                 source_encryption = source.get('properties', {}).get('dataEncryption') or {}
                 encryption = {

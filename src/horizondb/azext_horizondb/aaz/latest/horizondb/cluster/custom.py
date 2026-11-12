@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for license information.
 # --------------------------------------------------------------------------------------------
 
+import re
 from copy import deepcopy
 
 from knack.log import get_logger
@@ -31,6 +32,14 @@ def _add_encryption_arguments(args_schema):
         argument._options = options  # pylint: disable=protected-access
         argument._help['name'] = ' '.join(options)  # pylint: disable=protected-access
     return args_schema
+
+
+def _normalize_primary_key_uri(args):
+    key_uri = args.primary_key_uri.to_serialized_data()
+    if key_uri not in (AAZUndefined, None):
+        versioned_key_uri = re.fullmatch(r'(https://[^/?#]+/keys/[^/?#]+)/[^/?#]+/?', key_uri)
+        if versioned_key_uri:
+            args.primary_key_uri = versioned_key_uri.group(1)
 
 
 class ClusterCreate(_ClusterCreate):
@@ -81,12 +90,14 @@ class ClusterCreate(_ClusterCreate):
                 '--primary-key-uri and --primary-user-assigned-identity-id '
                 'must both be supplied with non-empty values to enable data encryption.'
             )
+        _normalize_primary_key_uri(args)
 
     class ClustersCreateOrReplace(_ClusterCreate.ClustersCreateOrReplace):
 
         @property
         def content(self):
             content = super().content
+            content['properties'].setdefault('postgreSqlVersion', '17')
             identity_id = content['properties'].get('dataEncryption', {}).get('primaryUserAssignedIdentityId')
             if identity_id is not None:
                 content['properties']['dataEncryption']['type'] = 'AzureKeyVault'
@@ -163,6 +174,7 @@ class ClusterUpdate(_ClusterUpdate):
             value = getattr(self.ctx.args, name).to_serialized_data()
             if value == '':
                 raise InvalidArgumentValueError(f"--{name.replace('_', '-')} must not be empty.")
+        _normalize_primary_key_uri(self.ctx.args)
 
     class ClustersUpdate(_ClusterUpdate.ClustersUpdate):
 
